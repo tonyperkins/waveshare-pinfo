@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=asperkins
-WorkingDirectory=/home/pi/waveshare-pinfo
+WorkingDirectory=/opt/waveshare-pinfo
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/home/pi/waveshare-pinfo/.venv/bin/python /home/pi/waveshare-pinfo/eink_display.py
+ExecStart=/opt/waveshare-pinfo/.venv/bin/python /opt/waveshare-pinfo/eink_display.py
 Restart=always
 RestartSec=10
 
