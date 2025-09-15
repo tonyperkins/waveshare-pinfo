@@ -5,4 +5,4 @@ requests
 python-dotenv
 numpy
 schedule
-waveshare-epaper
+gpiozero
