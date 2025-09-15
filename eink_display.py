@@ -35,8 +35,8 @@ class EInkDisplay:
         self.clear_display()
         
     def clear_display(self):
-        """Clear the display"""
-        self.epd.Clear(0xFF)
+        logger.info("Clearing display...")
+        self.epd.Clear()
         
     def get_homeassistant_entity(self, entity_id):
         """Fetch entity state from Home Assistant"""
