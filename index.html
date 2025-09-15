@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broadlink Learner</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="material-icons">settings_remote</i> Broadlink Learner</h1>
+            <p>Learn and manage your Broadlink IR/RF remote codes</p>
+        </header>
+
+        <main>
+            <div class="card">
+                <h2>Learn New Command</h2>
+                <div class="form-group">
+                    <label for="commandName">Command Name:</label>
+                    <input type="text" id="commandName" placeholder="e.g., TV Power">
+                </div>
+                <div class="form-group">
+                    <label for="commandType">Command Type:</label>
+                    <select id="commandType">
+                        <option value="ir">Infrared (IR)</option>
+                        <option value="rf">Radio Frequency (RF)</option>
+                    </select>
+                </div>
+                <button id="learnBtn" class="btn primary">
+                    <i class="material-icons">fiber_manual_record</i> Learn Command
+                </button>
+            </div>
+
+            <div class="card">
+                <h2>Saved Commands</h2>
+                <div id="commandsList" class="commands-list">
+                    <div class="empty-state">
+                        <i class="material-icons">inbox</i>
+                        <p>No commands learned yet</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Broadlink Learner &copy; 2025</p>
+        </footer>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

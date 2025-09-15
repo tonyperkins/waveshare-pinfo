@@ -1,0 +1,15 @@
+[Unit]
+Description=E-Ink Display Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/waveshare-pinfo
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/python3 /home/pi/waveshare-pinfo/eink_display.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
