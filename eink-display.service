@@ -1,6 +1,7 @@
 [Unit]
 Description=E-Ink Display Service
-After=network.target dev-spidev0.0.device
+After=network.target dev-spidev0.0.device pigpiod.service
+Requires=pigpiod.service
 
 [Service]
 Type=simple
