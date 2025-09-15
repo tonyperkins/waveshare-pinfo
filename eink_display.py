@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 import requests
 from dotenv import load_dotenv
 import numpy as np
-from waveshare_epd import epd4in01f
+from waveshare_epd import epd4in01f, epdconfig
 
 # Load environment variables
 load_dotenv()
@@ -119,8 +119,7 @@ class EInkDisplay:
             logger.error(f"An unexpected error occurred: {e}")
         finally:
             logger.info("Cleaning up GPIO and putting display to sleep...")
-            self.epd.sleep()
-            self.epd.Dev_exit()
+            epdconfig.module_exit()
 
 if __name__ == "__main__":
     display = EInkDisplay()
