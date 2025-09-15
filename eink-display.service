@@ -11,6 +11,7 @@ ExecStartPre=/bin/sleep 2
 ExecStart=/opt/waveshare-pinfo/.venv/bin/python /opt/waveshare-pinfo/eink_display.py
 Restart=always
 RestartSec=10
+Environment=GPIOZERO_PIN_FACTORY=pigpio
 
 [Install]
 WantedBy=multi-user.target
