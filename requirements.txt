@@ -6,3 +6,4 @@ python-dotenv
 numpy
 schedule
 gpiozero
+waveshare-epaper

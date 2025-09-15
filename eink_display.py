@@ -114,7 +114,11 @@ class EInkDisplay:
                 schedule.run_pending()
                 time.sleep(1)
         except KeyboardInterrupt:
-            logger.info("Shutting down...")
+            logger.info("Shutting down due to KeyboardInterrupt...")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+        finally:
+            logger.info("Cleaning up GPIO and putting display to sleep...")
             self.epd.sleep()
             self.epd.Dev_exit()
 
