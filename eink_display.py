@@ -92,17 +92,49 @@ class EInkDisplay:
             self.draw_centered_text(draw, 10, time_str, self.font_large, 0)
             self.draw_centered_text(draw, 50, date_str, self.font_medium, 0)
             
-            # Example: Get weather from Home Assistant
-            weather_text = "Weather unavailable"
-            weather = self.get_homeassistant_entity("weather.home")
-            if weather:
-                temp = weather.get('attributes', {}).get('temperature', 'N/A')
-                condition = weather.get('state', 'Unknown')
-                weather_text = f"{temp}°C • {condition}"
-            self.draw_centered_text(draw, 100, weather_text, self.font_medium, 0)
+            # Get Ecowitt weather data
+            temp_data = self.get_homeassistant_entity("sensor.gw1200b_outdoor_temperature")
+            humidity_data = self.get_homeassistant_entity("sensor.gw1200b_humidity")
+            wind_speed_data = self.get_homeassistant_entity("sensor.gw1200b_wind_speed")
+            wind_gust_data = self.get_homeassistant_entity("sensor.gw1200b_wind_gust")
+            daily_rain_data = self.get_homeassistant_entity("sensor.gw1200b_daily_rain_piezo")
+            feels_like_data = self.get_homeassistant_entity("sensor.gw1200b_feels_like_temperature")
+            
+            # Extract values with fallbacks
+            temp = temp_data.get('state', 'N/A') if temp_data else 'N/A'
+            temp_unit = temp_data.get('attributes', {}).get('unit_of_measurement', '°C') if temp_data else '°C'
+            
+            humidity = humidity_data.get('state', 'N/A') if humidity_data else 'N/A'
+            humidity_unit = humidity_data.get('attributes', {}).get('unit_of_measurement', '%') if humidity_data else '%'
+            
+            wind_speed = wind_speed_data.get('state', 'N/A') if wind_speed_data else 'N/A'
+            wind_gust = wind_gust_data.get('state', 'N/A') if wind_gust_data else 'N/A'
+            wind_unit = wind_speed_data.get('attributes', {}).get('unit_of_measurement', 'mph') if wind_speed_data else 'mph'
+            
+            daily_rain = daily_rain_data.get('state', 'N/A') if daily_rain_data else 'N/A'
+            rain_unit = daily_rain_data.get('attributes', {}).get('unit_of_measurement', 'in') if daily_rain_data else 'in'
+            
+            feels_like = feels_like_data.get('state', 'N/A') if feels_like_data else 'N/A'
+            
+            # Format weather display
+            temp_line = f"{temp}{temp_unit}"
+            if feels_like != 'N/A' and feels_like != temp:
+                temp_line += f" (feels {feels_like}{temp_unit})"
+            
+            humidity_line = f"Humidity: {humidity}{humidity_unit}"
+            wind_line = f"Wind: {wind_speed} {wind_unit}"
+            if wind_gust != 'N/A' and wind_gust != wind_speed:
+                wind_line += f" (gust {wind_gust})"
+            rain_line = f"Rain today: {daily_rain} {rain_unit}"
+            
+            # Draw weather information
+            self.draw_centered_text(draw, 90, temp_line, self.font_large, 0)
+            self.draw_centered_text(draw, 130, humidity_line, self.font_medium, 0)
+            self.draw_centered_text(draw, 160, wind_line, self.font_medium, 0)
+            self.draw_centered_text(draw, 190, rain_line, self.font_medium, 0)
             
             # Create content hash to detect changes
-            content_string = f"{time_str}|{date_str}|{weather_text}"
+            content_string = f"{time_str}|{date_str}|{temp_line}|{humidity_line}|{wind_line}|{rain_line}"
             import hashlib
             content_hash = hashlib.md5(content_string.encode()).hexdigest()
             
