@@ -22,17 +22,26 @@ class EInkDisplay:
         self.epd = epd4in01f.EPD()
         self.width = self.epd.width
         self.height = self.epd.height
-        self.font_small = ImageFont.truetype('DejaVuSans-Bold.ttf', 18)
-        self.font_medium = ImageFont.truetype('DejaVuSans-Bold.ttf', 24)
-        self.font_large = ImageFont.truetype('DejaVuSans-Bold.ttf', 32)
+        
+        # Load fonts
+        self.font_large = ImageFont.load_default()
+        self.font_medium = ImageFont.load_default()
+        
+        # Load environment variables
         self.homeassistant_url = os.getenv('HOME_ASSISTANT_URL')
         self.homeassistant_token = os.getenv('HOME_ASSISTANT_TOKEN')
+        
+        # Track last content to avoid unnecessary updates
+        self.last_content_hash = None
+        self.update_count = 0
         
     def init_display(self):
         """Initialize the e-ink display"""
         logger.info("Initializing e-ink display...")
         self.epd.init()
-        self.clear_display()
+        # Only clear on startup, not on every update
+        logger.info("Clearing display for initial setup...")
+        self.epd.Clear()
         
     def clear_display(self):
         logger.info("Clearing display...")
@@ -84,16 +93,31 @@ class EInkDisplay:
             self.draw_centered_text(draw, 50, date_str, self.font_medium, 0)
             
             # Example: Get weather from Home Assistant
+            weather_text = "Weather unavailable"
             weather = self.get_homeassistant_entity("weather.home")
             if weather:
                 temp = weather.get('attributes', {}).get('temperature', 'N/A')
                 condition = weather.get('state', 'Unknown')
                 weather_text = f"{temp}°C • {condition}"
-                self.draw_centered_text(draw, 100, weather_text, self.font_medium, 0)
+            self.draw_centered_text(draw, 100, weather_text, self.font_medium, 0)
             
-            # Convert to 7-color format and display
+            # Create content hash to detect changes
+            content_string = f"{time_str}|{date_str}|{weather_text}"
+            import hashlib
+            content_hash = hashlib.md5(content_string.encode()).hexdigest()
+            
+            # Skip update if content hasn't changed (except every 10th update for full refresh)
+            if (self.last_content_hash == content_hash and 
+                self.update_count % 10 != 0):
+                logger.info("Content unchanged, skipping display update")
+                return
+            
+            # Update display
             self.epd.display(self.epd.getbuffer(image))
-            logger.info("Display updated successfully")
+            self.last_content_hash = content_hash
+            self.update_count += 1
+            
+            logger.info(f"Display updated successfully (update #{self.update_count})")
             
         except Exception as e:
             logger.error(f"Error updating display: {e}")
