@@ -23,9 +23,16 @@ class EInkDisplay:
         self.width = self.epd.width
         self.height = self.epd.height
         
-        # Load fonts
-        self.font_large = ImageFont.load_default()
-        self.font_medium = ImageFont.load_default()
+        # Load fonts with proper sizes
+        try:
+            self.font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
+            self.font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
+            self.font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
+        except OSError:
+            # Fallback to default fonts if system fonts not available
+            self.font_large = ImageFont.load_default()
+            self.font_medium = ImageFont.load_default()
+            self.font_small = ImageFont.load_default()
         
         # Load environment variables
         self.homeassistant_url = os.getenv('HOME_ASSISTANT_URL')
@@ -88,9 +95,9 @@ class EInkDisplay:
             time_str = now.strftime("%H:%M")
             date_str = now.strftime("%A, %B %d")
             
-            # Draw header
+            # Draw header with larger fonts
             self.draw_centered_text(draw, 10, time_str, self.font_large, 0)
-            self.draw_centered_text(draw, 50, date_str, self.font_medium, 0)
+            self.draw_centered_text(draw, 55, date_str, self.font_medium, 0)
             
             # Get Ecowitt weather data
             temp_data = self.get_homeassistant_entity("sensor.gw1200b_outdoor_temperature")
@@ -116,22 +123,35 @@ class EInkDisplay:
             
             feels_like = feels_like_data.get('state', 'N/A') if feels_like_data else 'N/A'
             
-            # Format weather display
+            # Format weather display with better spacing
             temp_line = f"{temp}{temp_unit}"
             if feels_like != 'N/A' and feels_like != temp:
-                temp_line += f" (feels {feels_like}{temp_unit})"
+                feels_line = f"Feels like {feels_like}{temp_unit}"
+            else:
+                feels_line = None
             
-            humidity_line = f"Humidity: {humidity}{humidity_unit}"
-            wind_line = f"Wind: {wind_speed} {wind_unit}"
+            humidity_line = f"Humidity {humidity}{humidity_unit}"
+            wind_line = f"Wind {wind_speed} {wind_unit}"
             if wind_gust != 'N/A' and wind_gust != wind_speed:
                 wind_line += f" (gust {wind_gust})"
-            rain_line = f"Rain today: {daily_rain} {rain_unit}"
+            rain_line = f"Rain {daily_rain} {rain_unit}"
             
-            # Draw weather information
-            self.draw_centered_text(draw, 90, temp_line, self.font_large, 0)
-            self.draw_centered_text(draw, 130, humidity_line, self.font_medium, 0)
-            self.draw_centered_text(draw, 160, wind_line, self.font_medium, 0)
-            self.draw_centered_text(draw, 190, rain_line, self.font_medium, 0)
+            # Draw weather information with proper spacing for larger fonts
+            y_pos = 100
+            self.draw_centered_text(draw, y_pos, temp_line, self.font_large, 0)
+            y_pos += 45
+            
+            if feels_line:
+                self.draw_centered_text(draw, y_pos, feels_line, self.font_small, 0)
+                y_pos += 30
+            
+            self.draw_centered_text(draw, y_pos, humidity_line, self.font_medium, 0)
+            y_pos += 35
+            
+            self.draw_centered_text(draw, y_pos, wind_line, self.font_medium, 0)
+            y_pos += 35
+            
+            self.draw_centered_text(draw, y_pos, rain_line, self.font_medium, 0)
             
             # Create content hash to detect changes
             content_string = f"{time_str}|{date_str}|{temp_line}|{humidity_line}|{wind_line}|{rain_line}"
