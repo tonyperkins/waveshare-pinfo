@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Photos Album Picker</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; text-align: center; padding-top: 50px; }
+        .container { background-color: white; max-width: 500px; margin: auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        p { color: #666; }
+        #signin-button, #picker-button { display: inline-block; background-color: #4285F4; color: white; padding: 10px 20px; border-radius: 4px; font-size: 16px; cursor: pointer; border: none; margin-top: 20px; }
+        #picker-button { display: none; background-color: #34A853; }
+        #status { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Album Setup</h1>
+        <p>Sign in with your Google account and then select the album you want to display on your e-ink frame.</p>
+        
+        <div id="signin-button"></div>
+        <button id="picker-button" onclick="createPicker()">Select Album</button>
+
+        <p id="status">Step 1: Please sign in.</p>
+    </div>
+
+    <script>
+        let tokenClient;
+        let accessToken;
+
+        const GOOGLE_CLIENT_ID = "{{ google_client_id }}";
+        const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.sharing';
+
+        function gisInitalize() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    accessToken = tokenResponse.access_token;
+                    document.getElementById('signin-button').style.display = 'none';
+                    document.getElementById('picker-button').style.display = 'inline-block';
+                    document.getElementById('status').innerText = 'Step 2: Click the button to select your album.';
+                },
+            });
+        }
+
+        function createPicker() {
+            const view = new google.picker.View(google.picker.ViewId.PHOTOS);
+            view.setMimeTypes("image/jpeg,image/png");
+            const picker = new google.picker.PickerBuilder()
+                .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+                .setOAuthToken(accessToken)
+                .addView(view)
+                .setCallback(pickerCallback)
+                .build();
+            picker.setVisible(true);
+        }
+
+        async function pickerCallback(data) {
+            if (data[google.picker.Action.PICKED]) {
+                const photoId = data[google.picker.Response.DOCUMENTS][0][google.picker.Document.ID];
+                document.getElementById('status').innerText = 'Fetching album information...';
+                
+                // We need to get the album containing the photo
+                const mediaItem = await getMediaItem(photoId);
+                if (mediaItem && mediaItem.albumId) {
+                    const shareToken = await getShareableAlbum(mediaItem.albumId);
+                    if(shareToken) {
+                        document.getElementById('status').innerText = 'SUCCESS! Sending token to server...';
+                        sendTokenToServer(shareToken);
+                    }
+                } else {
+                    document.getElementById('status').innerText = 'Error: Could not find the album for the selected photo.';
+                }
+            }
+        }
+
+        async function getMediaItem(mediaItemId) {
+            const response = await fetch(`https://photoslibrary.googleapis.com/v1/mediaItems/${mediaItemId}`,
+            {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            return response.json();
+        }
+
+        async function getShareableAlbum(albumId) {
+            const response = await fetch(`https://photoslibrary.googleapis.com/v1/albums/${albumId}:share`,
+            {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isCollaborative: false, isCommentable: false })
+            });
+            const result = await response.json();
+            return result.shareInfo.shareToken;
+        }
+
+        function sendTokenToServer(shareToken) {
+            fetch('/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shareToken: shareToken })
+            }).then(response => {
+                if(response.ok) {
+                    document.getElementById('status').innerText = 'Setup complete! Check the terminal on your Pi for the token.';
+                } else {
+                    document.getElementById('status').innerText = 'Error: Failed to send token to server.';
+                }
+            });
+        }
+
+        // Main initialization logic
+        window.onload = () => {
+            // Load the Google Sign-In client
+            gisInitalize();
+
+            // Load the Google Picker API
+            gapi.load('picker', () => {});
+
+            // Render the sign-in button
+            google.accounts.id.renderButton(
+                document.getElementById('signin-button'),
+                { theme: 'outline', size: 'large', type: 'standard' }
+            );
+        };
+
+    </script>
+</body>
+</html>
