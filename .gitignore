@@ -18,3 +18,5 @@ ENV/
 .idea/
 *.swp
 *.swo
+credentials.json
+token.json
