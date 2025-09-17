@@ -286,13 +286,13 @@ class EInkDisplay:
             
             # === WEATHER DETAILS SECTION ===
             details_section_y = temp_section_y + temp_section_height + 15
-            details_section_height = 80  # Larger section for bigger font
+            details_section_height = 100  # Even larger section for xlarge font
             
             # Draw details section box
             self.draw_section_box(draw, margin, details_section_y, self.width - 2*margin, details_section_height, 0, 2)
             
-            # Create single line with all weather details in larger font
-            detail_y = details_section_y + 30
+            # Create single line with all weather details in same font as temperature
+            detail_y = details_section_y + 35
             
             # Format wind display
             wind_display = f"{wind_speed} {wind_unit}"
@@ -302,8 +302,8 @@ class EInkDisplay:
             # Create the details line
             details_line = f"💧 {humidity}{humidity_unit}  •  💨 {wind_display}  •  🌧 {daily_rain} {rain_unit}"
             
-            # Draw the details line centered with larger font
-            self.draw_centered_text(draw, detail_y, details_line, self.font_small, 0)
+            # Draw the details line centered with same font as temperature (xlarge)
+            self.draw_centered_text(draw, detail_y, details_line, self.font_xlarge, 0)
             
             # Create content hash for weather data only (excluding time)
             weather_string = f"{temp_line}|{humidity}|{wind_speed}|{daily_rain}|{feels_like}"
@@ -340,15 +340,27 @@ class EInkDisplay:
         
         # Schedule updates
         schedule.every(5).minutes.do(self.update_display)  # Full weather update every 5 minutes
-        schedule.every(1).minute.do(self.update_time_only)  # Fast time update every minute
         
         # Initial update
         self.update_display()
         
+        last_minute_check = None
+        
         try:
             while True:
+                # Check for scheduled weather updates
                 schedule.run_pending()
-                time.sleep(1)
+                
+                # Manual minute checking for more reliable time updates
+                now = datetime.now()
+                current_minute = now.strftime("%I:%M %p")
+                
+                if last_minute_check != current_minute:
+                    self.update_time_only()
+                    last_minute_check = current_minute
+                
+                time.sleep(10)  # Check every 10 seconds instead of every second
+                
         except KeyboardInterrupt:
             logger.info("Shutting down due to KeyboardInterrupt...")
         except Exception as e:
