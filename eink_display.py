@@ -228,7 +228,7 @@ class EInkDisplay:
             
             # === MAIN TEMPERATURE SECTION ===
             temp_section_y = main_section_y
-            temp_section_height = 85  # Optimized height
+            temp_section_height = 90  # Optimized height
             
             # Draw temperature section box
             self.draw_section_box(draw, margin, temp_section_y, self.width - 2*margin, temp_section_height, 0, 2)
