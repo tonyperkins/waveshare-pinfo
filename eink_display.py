@@ -228,7 +228,7 @@ class EInkDisplay:
             
             # === MAIN TEMPERATURE SECTION ===
             temp_section_y = main_section_y
-            temp_section_height = 80  # Reduced since no icon
+            temp_section_height = 75  # Optimized height
             
             # Draw temperature section box
             self.draw_section_box(draw, margin, temp_section_y, self.width - 2*margin, temp_section_height, 0, 2)
@@ -242,33 +242,29 @@ class EInkDisplay:
             temp_x = quarter_width
             feels_x = 3 * quarter_width
             
-            # Only show feels-like if it's different and available
-            if feels_like != 'N/A' and feels_like != temp:
-                # Draw temperature on left side (adjusted for no icon)
-                temp_width = draw.textlength(temp_line, font=self.font_xlarge)
-                temp_start_x = temp_x - temp_width // 2
-                self.draw_left_aligned_text(draw, temp_start_x, temp_section_y + 45, temp_line, self.font_xlarge, 0)
-                
-                # Draw feels-like on right side (adjusted for no icon)
-                feels_width = draw.textlength(feels_line, font=self.font_xlarge)
-                feels_start_x = feels_x - feels_width // 2
-                self.draw_left_aligned_text(draw, feels_start_x, temp_section_y + 45, feels_line, self.font_xlarge, 0)
-                
-                # Add labels (adjusted spacing)
-                temp_label_width = draw.textlength("ACTUAL", font=self.font_tiny)
-                temp_label_x = temp_x - temp_label_width // 2
-                self.draw_left_aligned_text(draw, temp_label_x, temp_section_y + 15, "ACTUAL", self.font_tiny, 0)
-                
-                feels_label_width = draw.textlength("FEELS LIKE", font=self.font_tiny)
-                feels_label_x = feels_x - feels_label_width // 2
-                self.draw_left_aligned_text(draw, feels_label_x, temp_section_y + 15, "FEELS LIKE", self.font_tiny, 0)
-            else:
-                # Just show the single temperature centered (adjusted for no icon)
-                self.draw_centered_text(draw, temp_section_y + 45, temp_line, self.font_xlarge, 0)
+            # Always show both actual and feels-like with labels for consistency
+            # Draw temperature on left side
+            temp_width = draw.textlength(temp_line, font=self.font_xlarge)
+            temp_start_x = temp_x - temp_width // 2
+            self.draw_left_aligned_text(draw, temp_start_x, temp_section_y + 50, temp_line, self.font_xlarge, 0)
+            
+            # Draw feels-like on right side
+            feels_width = draw.textlength(feels_line, font=self.font_xlarge)
+            feels_start_x = feels_x - feels_width // 2
+            self.draw_left_aligned_text(draw, feels_start_x, temp_section_y + 50, feels_line, self.font_xlarge, 0)
+            
+            # Add labels
+            temp_label_width = draw.textlength("ACTUAL", font=self.font_tiny)
+            temp_label_x = temp_x - temp_label_width // 2
+            self.draw_left_aligned_text(draw, temp_label_x, temp_section_y + 15, "ACTUAL", self.font_tiny, 0)
+            
+            feels_label_width = draw.textlength("FEELS LIKE", font=self.font_tiny)
+            feels_label_x = feels_x - feels_label_width // 2
+            self.draw_left_aligned_text(draw, feels_label_x, temp_section_y + 15, "FEELS LIKE", self.font_tiny, 0)
             
             # === WIND SECTION ===
             wind_section_y = temp_section_y + temp_section_height + 15
-            wind_section_height = 80  # Increased for better spacing
+            wind_section_height = 75  # Optimized spacing
             
             # Draw wind section box
             self.draw_section_box(draw, margin, wind_section_y, self.width - 2*margin, wind_section_height, 0, 2)
@@ -283,13 +279,13 @@ class EInkDisplay:
                 wind_value = f"{wind_speed} {wind_unit}"
                 wind_width = draw.textlength(wind_value, font=self.font_large_details)
                 wind_start_x = wind_x - wind_width // 2
-                self.draw_left_aligned_text(draw, wind_start_x, wind_section_y + 45, wind_value, self.font_large_details, 0)
+                self.draw_left_aligned_text(draw, wind_start_x, wind_section_y + 50, wind_value, self.font_large_details, 0)
                 
                 # Draw gust speed
                 gust_value = f"{wind_gust} {wind_unit}"
                 gust_width = draw.textlength(gust_value, font=self.font_large_details)
                 gust_start_x = gust_x - gust_width // 2
-                self.draw_left_aligned_text(draw, gust_start_x, wind_section_y + 45, gust_value, self.font_large_details, 0)
+                self.draw_left_aligned_text(draw, gust_start_x, wind_section_y + 50, gust_value, self.font_large_details, 0)
                 
                 # Add labels
                 wind_label_width = draw.textlength("WIND", font=self.font_tiny)
@@ -302,14 +298,14 @@ class EInkDisplay:
             else:
                 # Single wind value centered
                 wind_value = f"{wind_speed} {wind_unit}"
-                self.draw_centered_text(draw, wind_section_y + 45, wind_value, self.font_large_details, 0)
+                self.draw_centered_text(draw, wind_section_y + 50, wind_value, self.font_large_details, 0)
                 
                 # Add label
                 self.draw_centered_text(draw, wind_section_y + 15, "WIND", self.font_tiny, 0)
             
             # === RAIN AND HUMIDITY SECTION ===
             rain_section_y = wind_section_y + wind_section_height + 15
-            rain_section_height = 80  # Increased for better spacing
+            rain_section_height = 75  # Optimized spacing
             
             # Draw rain/humidity section box
             self.draw_section_box(draw, margin, rain_section_y, self.width - 2*margin, rain_section_height, 0, 2)
@@ -322,13 +318,13 @@ class EInkDisplay:
             rain_value = f"{daily_rain} {rain_unit}"
             rain_width = draw.textlength(rain_value, font=self.font_large_details)
             rain_start_x = rain_x - rain_width // 2
-            self.draw_left_aligned_text(draw, rain_start_x, rain_section_y + 45, rain_value, self.font_large_details, 0)
+            self.draw_left_aligned_text(draw, rain_start_x, rain_section_y + 50, rain_value, self.font_large_details, 0)
             
             # Draw humidity value
             humidity_value = f"{humidity}%"
             humidity_width = draw.textlength(humidity_value, font=self.font_large_details)
             humidity_start_x = humidity_x - humidity_width // 2
-            self.draw_left_aligned_text(draw, humidity_start_x, rain_section_y + 45, humidity_value, self.font_large_details, 0)
+            self.draw_left_aligned_text(draw, humidity_start_x, rain_section_y + 50, humidity_value, self.font_large_details, 0)
             
             # Add labels
             rain_label_width = draw.textlength("RAIN", font=self.font_tiny)
