@@ -198,6 +198,30 @@ class GooglePhotosService:
         
         return True
     
+    def check_token_info(self):
+        """Check token information and scopes"""
+        if not self.credentials:
+            logger.error("No credentials available")
+            return False
+        
+        try:
+            # Check token info
+            token_info_url = f"https://oauth2.googleapis.com/tokeninfo?access_token={self.credentials.token}"
+            response = requests.get(token_info_url, timeout=10)
+            
+            if response.status_code == 200:
+                token_info = response.json()
+                logger.info(f"Token info: {token_info}")
+                logger.info(f"Scopes: {token_info.get('scope', 'No scopes found')}")
+                return True
+            else:
+                logger.error(f"Token info request failed: {response.status_code}")
+                logger.error(f"Response: {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"Error checking token info: {e}")
+            return False
+    
     def _make_api_request(self, url, method='GET', data=None):
         """Make direct API request when discovery service fails"""
         # Refresh token if needed
@@ -223,7 +247,16 @@ class GooglePhotosService:
             return response.json()
         except requests.exceptions.HTTPError as e:
             logger.error(f"HTTP error in API request: {e}")
-            logger.error(f"Response content: {e.response.text if e.response else 'No response'}")
+            if e.response:
+                logger.error(f"Response status: {e.response.status_code}")
+                logger.error(f"Response headers: {dict(e.response.headers)}")
+                try:
+                    error_content = e.response.json()
+                    logger.error(f"Response JSON: {error_content}")
+                except:
+                    logger.error(f"Response text: {e.response.text}")
+            else:
+                logger.error("No response object available")
             return None
         except Exception as e:
             logger.error(f"Direct API request failed: {e}")

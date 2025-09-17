@@ -90,6 +90,11 @@ def test_authentication():
     
     if service.authenticate():
         print("✓ Authentication successful!")
+        
+        # Check token information
+        print("Checking token information...")
+        service.check_token_info()
+        
         return service
     else:
         print("✗ Authentication failed!")
