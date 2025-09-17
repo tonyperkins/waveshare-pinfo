@@ -200,6 +200,14 @@ class GooglePhotosService:
     
     def _make_api_request(self, url, method='GET', data=None):
         """Make direct API request when discovery service fails"""
+        # Refresh token if needed
+        if self.credentials.expired:
+            try:
+                self.credentials.refresh(Request())
+            except Exception as e:
+                logger.error(f"Failed to refresh credentials: {e}")
+                return None
+        
         headers = {
             'Authorization': f'Bearer {self.credentials.token}',
             'Content-Type': 'application/json'
@@ -213,6 +221,10 @@ class GooglePhotosService:
             
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error in API request: {e}")
+            logger.error(f"Response content: {e.response.text if e.response else 'No response'}")
+            return None
         except Exception as e:
             logger.error(f"Direct API request failed: {e}")
             return None
@@ -265,27 +277,26 @@ class GooglePhotosService:
                     if not page_token:
                         break
             else:
-                # Get recent photos from library
+                # Get recent photos from library - use mediaItems.list instead of search for recent photos
                 logger.info("Fetching recent photos from library")
                 
                 while True:
-                    request_body = {
-                        'pageSize': 100,
-                        'filters': {
-                            'mediaTypeFilter': {
-                                'mediaTypes': ['PHOTO']
-                            }
-                        }
-                    }
-                    if page_token:
-                        request_body['pageToken'] = page_token
-                    
                     if self.service:
-                        response = self.service.mediaItems().search(body=request_body).execute()
+                        request = self.service.mediaItems().list(pageSize=100)
+                        if page_token:
+                            request = self.service.mediaItems().list(pageSize=100, pageToken=page_token)
+                        response = request.execute()
                     else:
-                        # Use direct API call
-                        url = 'https://photoslibrary.googleapis.com/v1/mediaItems:search'
-                        response = self._make_api_request(url, 'POST', request_body)
+                        # Use direct API call for listing recent photos
+                        url = 'https://photoslibrary.googleapis.com/v1/mediaItems'
+                        params = {'pageSize': 100}
+                        if page_token:
+                            params['pageToken'] = page_token
+                        
+                        # Build URL with parameters
+                        param_string = '&'.join([f'{k}={v}' for k, v in params.items()])
+                        full_url = f"{url}?{param_string}"
+                        response = self._make_api_request(full_url, 'GET')
                         if not response:
                             break
                     
