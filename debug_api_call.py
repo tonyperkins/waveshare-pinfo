@@ -10,16 +10,13 @@ def print_header(title):
     print("="*60)
 
 def main():
-    """A simple, direct API call to debug Google Photos authentication."""
-    print_header("Direct Google Photos API Debug Test")
+    """A simple, direct API call to fetch photos, bypassing the Google client library."""
+    print_header("Direct Google Photos API Fetch Test")
 
-    # 1. Check if token.json exists
     if not os.path.exists(TOKEN_FILE):
-        print(f"ERROR: '{TOKEN_FILE}' not found.")
-        print("Please run 'python setup_google_photos.py test' to authenticate first.")
+        print(f"ERROR: '{TOKEN_FILE}' not found. Please authenticate first.")
         return
 
-    # 2. Load the token and extract the access token
     try:
         with open(TOKEN_FILE, 'r') as f:
             token_data = json.load(f)
@@ -28,40 +25,36 @@ def main():
         if not access_token:
             print("ERROR: Could not find 'token' in token.json.")
             return
-        print("Successfully loaded access token from token.json.")
+        print("Successfully loaded access token.")
     except Exception as e:
-        print(f"ERROR: Failed to read or parse token.json: {e}")
+        print(f"ERROR: Failed to read token.json: {e}")
         return
 
-    # 3. Make the direct API call
-    api_url = 'https://photoslibrary.googleapis.com/v1/mediaItems?pageSize=1'
+    api_url = 'https://photoslibrary.googleapis.com/v1/mediaItems?pageSize=10'
     headers = {
         'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
     }
 
-    print(f"\nMaking a direct GET request to: {api_url}")
+    print(f"\nMaking a direct GET request to fetch photos...")
     try:
-        response = requests.get(api_url, headers=headers, timeout=20)
+        response = requests.get(api_url, headers=headers, timeout=30)
 
-        # 4. Print the results
-        print_header("API Response Details")
+        print_header("API Response")
         print(f"Status Code: {response.status_code}")
-        print("\n--- Response Headers ---")
-        for key, value in response.headers.items():
-            print(f"{key}: {value}")
-        
-        print("\n--- Response Body ---")
-        try:
-            # Try to print pretty JSON
-            print(json.dumps(response.json(), indent=2))
-            print("\nSUCCESS: The API call worked directly!")
-            print("This means the issue is likely with the 'google-api-python-client' library.")
-        except json.JSONDecodeError:
-            # If not JSON, print as text
-            print(response.text)
-            print("\nERROR: The API call failed.")
-            print("This confirms the problem is on the Google Cloud project configuration side.")
+
+        if response.status_code == 200:
+            print("\nSUCCESS! The API call worked and fetched photos.")
+            photos = response.json().get('mediaItems', [])
+            print(f"Found {len(photos)} photos.")
+            for i, photo in enumerate(photos):
+                print(f"  {i+1}. {photo.get('filename')} ({photo.get('id')})")
+        else:
+            print("\nERROR: The direct API call failed.")
+            print("Response Body:")
+            try:
+                print(json.dumps(response.json(), indent=2))
+            except json.JSONDecodeError:
+                print(response.text)
 
     except requests.exceptions.RequestException as e:
         print(f"\nFATAL ERROR: The web request itself failed: {e}")
