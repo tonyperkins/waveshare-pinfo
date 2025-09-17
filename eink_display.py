@@ -134,7 +134,7 @@ class EInkDisplay:
             return "⛅"
     
     def update_time_only(self):
-        """Fast partial update for just the time display"""
+        """Fast partial update for just the time display using Waveshare low-level methods"""
         try:
             now = datetime.now()
             current_minute = now.strftime("%I:%M %p")
@@ -143,60 +143,79 @@ class EInkDisplay:
             if self.last_minute == current_minute:
                 return
             
-            # Debug: Log available methods on the display object
-            logger.info(f"Available EPD methods: {[method for method in dir(self.epd) if 'display' in method.lower() or 'partial' in method.lower()]}")
-            
-            # Try different partial update method names for Waveshare displays
-            partial_methods = [
-                'displayPartial',
-                'displayPartBaseImage', 
-                'DisplayPartial',
-                'DisplayPartBaseImage',
-                'display_partial',
-                'displayPart',
-                'DisplayPart'
-            ]
-            
             time_str = now.strftime("%I:%M %p")
             date_str = now.strftime("%A, %B %d")
             
-            # Try each possible partial update method
-            for method_name in partial_methods:
-                if hasattr(self.epd, method_name):
-                    try:
-                        logger.info(f"Attempting partial update with method: {method_name}")
-                        
-                        # Create a small image for just the time areas
-                        time_image = Image.new('RGB', (self.width, self.height), 'white')
-                        time_draw = ImageDraw.Draw(time_image)
-                        
-                        # Draw main border (to maintain visual consistency)
-                        self.draw_section_box(time_draw, 5, 5, self.width - 10, self.height - 10, 0, 3)
-                        
-                        # Draw time/date in upper left
-                        self.draw_left_aligned_text(time_draw, 20, 15, time_str, self.font_large, 0)
-                        self.draw_left_aligned_text(time_draw, 20, 50, date_str, self.font_tiny, 0)
-                        
-                        # Draw last updated in upper right
-                        self.draw_right_aligned_text(time_draw, self.width - 20, 15, "Updated:", self.font_tiny, 0)
-                        self.draw_right_aligned_text(time_draw, self.width - 20, 35, current_minute, self.font_medium, 0)
-                        
-                        # Try the partial update method
-                        method = getattr(self.epd, method_name)
-                        method(self.epd.getbuffer(time_image))
-                        
-                        self.last_minute = current_minute
-                        logger.info(f"Time updated via partial refresh using {method_name}: {time_str}")
-                        return
-                        
-                    except Exception as partial_error:
-                        logger.warning(f"Partial update method {method_name} failed: {partial_error}")
-                        continue
+            # Check if we have the required low-level methods for partial updates
+            required_methods = ['SetWindow', 'SetCursor', 'send_command', 'send_data2', 'TurnOnDisplay']
+            if not all(hasattr(self.epd, method) for method in required_methods):
+                logger.warning("Required partial update methods not available. Skipping time update.")
+                self.last_minute = current_minute
+                return
             
-            # If no partial update methods work, log this and skip the update
-            logger.warning("No working partial update methods found. Skipping time-only update to avoid slow full refresh.")
-            logger.info(f"Time change detected ({current_minute}) but not updating display to avoid slow refresh")
-            self.last_minute = current_minute
+            try:
+                # Define partial update areas (coordinates must be multiples of 8 for x)
+                # Left time area: time and date
+                left_x_start = 16  # Multiple of 8
+                left_y_start = 10
+                left_x_end = 240   # Multiple of 8
+                left_y_end = 70
+                
+                # Right time area: updated time
+                right_x_start = 400  # Multiple of 8
+                right_y_start = 10
+                right_x_end = 632    # Multiple of 8 (close to width-8)
+                right_y_end = 60
+                
+                # Create full-size image for proper coordinate mapping
+                image = Image.new('RGB', (self.width, self.height), 'white')
+                draw = ImageDraw.Draw(image)
+                
+                # Draw time/date in upper left
+                self.draw_left_aligned_text(draw, 20, 15, time_str, self.font_large, 0)
+                self.draw_left_aligned_text(draw, 20, 50, date_str, self.font_tiny, 0)
+                
+                # Draw last updated in upper right
+                self.draw_right_aligned_text(draw, self.width - 20, 15, "Updated:", self.font_tiny, 0)
+                self.draw_right_aligned_text(draw, self.width - 20, 35, current_minute, self.font_medium, 0)
+                
+                # Update left area (time/date)
+                self.epd.SetWindow(left_x_start, left_y_start, left_x_end, left_y_end)
+                self.epd.SetCursor(left_x_start, left_y_start)
+                self.epd.send_command(0x24)  # RAM write command
+                left_buffer = self.epd.getbuffer(image.crop((left_x_start, left_y_start, left_x_end, left_y_end)))
+                self.epd.send_data2(left_buffer)
+                
+                # Update right area (updated time)
+                self.epd.SetWindow(right_x_start, right_y_start, right_x_end, right_y_end)
+                self.epd.SetCursor(right_x_start, right_y_start)
+                self.epd.send_command(0x24)  # RAM write command
+                right_buffer = self.epd.getbuffer(image.crop((right_x_start, right_y_start, right_x_end, right_y_end)))
+                self.epd.send_data2(right_buffer)
+                
+                # Trigger the display update
+                self.epd.TurnOnDisplay()
+                
+                self.last_minute = current_minute
+                logger.info(f"Time updated via partial refresh: {time_str}")
+                
+                # Track partial updates for periodic full refresh
+                if not hasattr(self, 'partial_update_count'):
+                    self.partial_update_count = 0
+                self.partial_update_count += 1
+                
+                # Force full refresh after 8 partial updates to prevent ghosting
+                if self.partial_update_count >= 8:
+                    logger.info("Triggering full refresh after 8 partial updates")
+                    self.partial_update_count = 0
+                    self.update_display()
+                
+                return
+                
+            except Exception as partial_error:
+                logger.warning(f"Partial update failed: {partial_error}, skipping time update")
+                self.last_minute = current_minute
+                return
             
         except Exception as e:
             logger.error(f"Error in time update: {e}")
@@ -271,23 +290,30 @@ class EInkDisplay:
             # Draw weather icon centered at top
             self.draw_centered_text(draw, temp_section_y + 15, weather_icon, self.font_large, 0)
             
-            # Draw temperature and feels-like side by side with equal prominence
+            # Draw temperature and feels-like with humidity in between
             temp_line = f"{temp}{temp_unit}"
             feels_line = f"{feels_like}{temp_unit}" if feels_like != 'N/A' else f"{temp}{temp_unit}"
             
-            # Calculate positions for side-by-side display
-            quarter_width = self.width // 4
-            temp_x = quarter_width
-            feels_x = 3 * quarter_width
+            # Calculate positions - divide into 5 sections for better spacing
+            section_width = (self.width - 2*margin - 40) // 5  # Leave 40px total margin from edges
+            temp_x = margin + 20 + section_width
+            humidity_x = margin + 20 + 2.5 * section_width
+            feels_x = margin + 20 + 4 * section_width
             
             # Only show feels-like if it's different and available
             if feels_like != 'N/A' and feels_like != temp:
-                # Draw temperature on left side
+                # Draw temperature on left side (better positioned)
                 temp_width = draw.textlength(temp_line, font=self.font_xlarge)
                 temp_start_x = temp_x - temp_width // 2
                 self.draw_left_aligned_text(draw, temp_start_x, temp_section_y + 55, temp_line, self.font_xlarge, 0)
                 
-                # Draw feels-like on right side
+                # Draw humidity percentage in center
+                humidity_display = f"{humidity}%"
+                humidity_width = draw.textlength(humidity_display, font=self.font_xlarge)
+                humidity_start_x = humidity_x - humidity_width // 2
+                self.draw_left_aligned_text(draw, humidity_start_x, temp_section_y + 55, humidity_display, self.font_xlarge, 0)
+                
+                # Draw feels-like on right side (better positioned)
                 feels_width = draw.textlength(feels_line, font=self.font_xlarge)
                 feels_start_x = feels_x - feels_width // 2
                 self.draw_left_aligned_text(draw, feels_start_x, temp_section_y + 55, feels_line, self.font_xlarge, 0)
@@ -301,8 +327,15 @@ class EInkDisplay:
                 feels_label_x = feels_x - feels_label_width // 2
                 self.draw_left_aligned_text(draw, feels_label_x, temp_section_y + 35, "FEELS LIKE", self.font_tiny, 0)
             else:
-                # Just show the single temperature centered
-                self.draw_centered_text(draw, temp_section_y + 55, temp_line, self.font_xlarge, 0)
+                # Just show the temperature and humidity side by side
+                temp_width = draw.textlength(temp_line, font=self.font_xlarge)
+                temp_start_x = (self.width // 2 - 50) - temp_width // 2
+                self.draw_left_aligned_text(draw, temp_start_x, temp_section_y + 55, temp_line, self.font_xlarge, 0)
+                
+                # Draw humidity on the right
+                humidity_display = f"{humidity}%"
+                humidity_start_x = self.width // 2 + 50
+                self.draw_left_aligned_text(draw, humidity_start_x, temp_section_y + 55, humidity_display, self.font_xlarge, 0)
             
             # === WEATHER DETAILS SECTION ===
             details_section_y = temp_section_y + temp_section_height + 15
@@ -314,13 +347,14 @@ class EInkDisplay:
             # Create single line with all weather details in same font as temperature
             detail_y = details_section_y + 35
             
-            # Format wind display
-            wind_display = f"{wind_speed} {wind_unit}"
+            # Format wind display as x.x / y.y mph
             if wind_gust != 'N/A' and wind_gust != wind_speed:
-                wind_display += f" (gusts {wind_gust})"
+                wind_display = f"{wind_speed} / {wind_gust} {wind_unit}"
+            else:
+                wind_display = f"{wind_speed} {wind_unit}"
             
-            # Create the details line
-            details_line = f"💧 {humidity}{humidity_unit}  •  💨 {wind_display}  •  🌧 {daily_rain} {rain_unit}"
+            # Create the details line (humidity removed since it's now in the middle of temps)
+            details_line = f"💨 {wind_display}  •  🌧 {daily_rain} {rain_unit}"
             
             # Draw the details line centered with 80% of temperature font size
             self.draw_centered_text(draw, detail_y, details_line, self.font_large_details, 0)
