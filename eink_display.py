@@ -182,8 +182,8 @@ class EInkDisplay:
             
             # Define layout margins and sections
             margin = 15
-            header_height = 50  # Reduced from 70
-            main_section_y = header_height + 20
+            header_height = 60  # Reduced from 70
+            main_section_y = header_height + 30
             
             # Get current time
             now = datetime.now()
@@ -228,7 +228,7 @@ class EInkDisplay:
             
             # === MAIN TEMPERATURE SECTION ===
             temp_section_y = main_section_y
-            temp_section_height = 75  # Optimized height
+            temp_section_height = 85  # Optimized height
             
             # Draw temperature section box
             self.draw_section_box(draw, margin, temp_section_y, self.width - 2*margin, temp_section_height, 0, 2)
@@ -264,7 +264,7 @@ class EInkDisplay:
             
             # === WIND SECTION ===
             wind_section_y = temp_section_y + temp_section_height + 15
-            wind_section_height = 75  # Optimized spacing
+            wind_section_height = 85  # Optimized spacing
             
             # Draw wind section box
             self.draw_section_box(draw, margin, wind_section_y, self.width - 2*margin, wind_section_height, 0, 2)
@@ -305,7 +305,7 @@ class EInkDisplay:
             
             # === RAIN AND HUMIDITY SECTION ===
             rain_section_y = wind_section_y + wind_section_height + 15
-            rain_section_height = 75  # Optimized spacing
+            rain_section_height = 85  # Optimized spacing
             
             # Draw rain/humidity section box
             self.draw_section_box(draw, margin, rain_section_y, self.width - 2*margin, rain_section_height, 0, 2)
