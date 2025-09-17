@@ -28,6 +28,7 @@ class EInkDisplay:
             self.font_xlarge = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
             self.font_large_details = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)  # 80% of xlarge
             self.font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+            self.font_humidity = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 34)  # 70% of xlarge
             self.font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
             self.font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
             self.font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
@@ -36,6 +37,7 @@ class EInkDisplay:
             self.font_xlarge = ImageFont.load_default()
             self.font_large_details = ImageFont.load_default()
             self.font_large = ImageFont.load_default()
+            self.font_humidity = ImageFont.load_default()
             self.font_medium = ImageFont.load_default()
             self.font_small = ImageFont.load_default()
             self.font_tiny = ImageFont.load_default()
@@ -49,6 +51,7 @@ class EInkDisplay:
         self.update_count = 0
         self.last_minute = None
         self.last_weather_hash = None
+        self.last_partial_update_time = 0  # Track last partial update for 180s minimum interval
         
     def init_display(self):
         """Initialize the e-ink display"""
@@ -134,26 +137,42 @@ class EInkDisplay:
             return "⛅"
     
     def update_time_only(self):
-        """Fast partial update for just the time display using Waveshare low-level methods"""
+        """Partial update for time display - respects 180-second minimum interval"""
         try:
             now = datetime.now()
             current_minute = now.strftime("%I:%M %p")
+            current_time = time.time()
             
             # Only update if the minute has changed
             if self.last_minute == current_minute:
                 return
             
+            # Check 180-second minimum interval (Waveshare requirement)
+            time_since_last_update = current_time - self.last_partial_update_time
+            if time_since_last_update < 180:
+                logger.info(f"Skipping time update - only {time_since_last_update:.1f}s since last update (need 180s minimum)")
+                return
+            
             time_str = now.strftime("%I:%M %p")
             date_str = now.strftime("%A, %B %d")
             
+            # Debug: Check available methods
+            available_methods = [method for method in dir(self.epd) if any(keyword in method.lower() for keyword in ['window', 'cursor', 'command', 'data', 'display', 'turn'])]
+            logger.info(f"Available EPD methods: {available_methods}")
+            
             # Check if we have the required low-level methods for partial updates
             required_methods = ['SetWindow', 'SetCursor', 'send_command', 'send_data2', 'TurnOnDisplay']
-            if not all(hasattr(self.epd, method) for method in required_methods):
-                logger.warning("Required partial update methods not available. Skipping time update.")
+            missing_methods = [method for method in required_methods if not hasattr(self.epd, method)]
+            
+            if missing_methods:
+                logger.warning(f"Missing partial update methods: {missing_methods}")
+                logger.info(f"Time change detected ({current_minute}) but partial updates not supported")
                 self.last_minute = current_minute
                 return
             
             try:
+                logger.info(f"Attempting partial update for time: {time_str}")
+                
                 # Define partial update areas (coordinates must be multiples of 8 for x)
                 # Left time area: time and date
                 left_x_start = 16  # Multiple of 8
@@ -180,6 +199,7 @@ class EInkDisplay:
                 self.draw_right_aligned_text(draw, self.width - 20, 35, current_minute, self.font_medium, 0)
                 
                 # Update left area (time/date)
+                logger.info("Updating left time area...")
                 self.epd.SetWindow(left_x_start, left_y_start, left_x_end, left_y_end)
                 self.epd.SetCursor(left_x_start, left_y_start)
                 self.epd.send_command(0x24)  # RAM write command
@@ -187,6 +207,7 @@ class EInkDisplay:
                 self.epd.send_data2(left_buffer)
                 
                 # Update right area (updated time)
+                logger.info("Updating right time area...")
                 self.epd.SetWindow(right_x_start, right_y_start, right_x_end, right_y_end)
                 self.epd.SetCursor(right_x_start, right_y_start)
                 self.epd.send_command(0x24)  # RAM write command
@@ -194,26 +215,31 @@ class EInkDisplay:
                 self.epd.send_data2(right_buffer)
                 
                 # Trigger the display update
+                logger.info("Triggering display refresh...")
                 self.epd.TurnOnDisplay()
                 
+                # Update tracking variables
                 self.last_minute = current_minute
-                logger.info(f"Time updated via partial refresh: {time_str}")
+                self.last_partial_update_time = current_time
                 
-                # Track partial updates for periodic full refresh
+                logger.info(f"✓ Partial time update successful: {time_str}")
+                
+                # Track partial updates for periodic full refresh (reduced from 8 to 3 due to 180s interval)
                 if not hasattr(self, 'partial_update_count'):
                     self.partial_update_count = 0
                 self.partial_update_count += 1
                 
-                # Force full refresh after 8 partial updates to prevent ghosting
-                if self.partial_update_count >= 8:
-                    logger.info("Triggering full refresh after 8 partial updates")
+                # Force full refresh after 3 partial updates (every ~9 minutes) to prevent ghosting
+                if self.partial_update_count >= 3:
+                    logger.info("Triggering full refresh after 3 partial updates")
                     self.partial_update_count = 0
                     self.update_display()
                 
                 return
                 
             except Exception as partial_error:
-                logger.warning(f"Partial update failed: {partial_error}, skipping time update")
+                logger.error(f"Partial update failed: {partial_error}")
+                logger.info("Skipping time update to avoid slow full refresh")
                 self.last_minute = current_minute
                 return
             
@@ -307,11 +333,11 @@ class EInkDisplay:
                 temp_start_x = temp_x - temp_width // 2
                 self.draw_left_aligned_text(draw, temp_start_x, temp_section_y + 55, temp_line, self.font_xlarge, 0)
                 
-                # Draw humidity percentage in center
+                # Draw humidity percentage in center (smaller font)
                 humidity_display = f"{humidity}%"
-                humidity_width = draw.textlength(humidity_display, font=self.font_xlarge)
+                humidity_width = draw.textlength(humidity_display, font=self.font_humidity)
                 humidity_start_x = humidity_x - humidity_width // 2
-                self.draw_left_aligned_text(draw, humidity_start_x, temp_section_y + 55, humidity_display, self.font_xlarge, 0)
+                self.draw_left_aligned_text(draw, humidity_start_x, temp_section_y + 60, humidity_display, self.font_humidity, 0)
                 
                 # Draw feels-like on right side (better positioned)
                 feels_width = draw.textlength(feels_line, font=self.font_xlarge)
@@ -332,20 +358,20 @@ class EInkDisplay:
                 temp_start_x = (self.width // 2 - 50) - temp_width // 2
                 self.draw_left_aligned_text(draw, temp_start_x, temp_section_y + 55, temp_line, self.font_xlarge, 0)
                 
-                # Draw humidity on the right
+                # Draw humidity on the right (smaller font)
                 humidity_display = f"{humidity}%"
                 humidity_start_x = self.width // 2 + 50
-                self.draw_left_aligned_text(draw, humidity_start_x, temp_section_y + 55, humidity_display, self.font_xlarge, 0)
+                self.draw_left_aligned_text(draw, humidity_start_x, temp_section_y + 60, humidity_display, self.font_humidity, 0)
             
             # === WEATHER DETAILS SECTION ===
             details_section_y = temp_section_y + temp_section_height + 15
-            details_section_height = 100  # Even larger section for xlarge font
+            details_section_height = 80  # Reduced height for better spacing
             
             # Draw details section box
             self.draw_section_box(draw, margin, details_section_y, self.width - 2*margin, details_section_height, 0, 2)
             
-            # Create single line with all weather details in same font as temperature
-            detail_y = details_section_y + 35
+            # Create single line with all weather details - better positioned from top and bottom
+            detail_y = details_section_y + 25  # More space from top
             
             # Format wind display as x.x / y.y mph
             if wind_gust != 'N/A' and wind_gust != wind_speed:
@@ -353,8 +379,8 @@ class EInkDisplay:
             else:
                 wind_display = f"{wind_speed} {wind_unit}"
             
-            # Create the details line (humidity removed since it's now in the middle of temps)
-            details_line = f"💨 {wind_display}  •  🌧 {daily_rain} {rain_unit}"
+            # Create the details line with text labels instead of emojis
+            details_line = f"WIND {wind_display}  •  RAIN {daily_rain} {rain_unit}"
             
             # Draw the details line centered with 80% of temperature font size
             self.draw_centered_text(draw, detail_y, details_line, self.font_large_details, 0)
