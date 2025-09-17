@@ -65,119 +65,33 @@ class GooglePhotosService:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.credentials_file, self.SCOPES)
                 
-                # Check if we're in a headless environment
-                headless = not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY')
-                
-                if headless:
-                    logger.info("Headless environment detected, using manual authentication")
+                # Use the modern loopback flow for all interactive authentications.
+                # This is the most reliable method for CLI and headless apps.
+                try:
+                    # The library will print the auth URL. The user must copy it.
+                    # The server will block until the user completes the flow in their browser.
+                    # The redirect to localhost is caught automatically by the server.
                     print("\n" + "="*60)
                     print(" GOOGLE PHOTOS AUTHENTICATION REQUIRED")
                     print("="*60)
-                    print("Please complete authentication in your web browser:")
-                    print("1. Copy the URL that appears below")
-                    print("2. Open it in a web browser on any device")
-                    print("3. Sign in and authorize the application")
-                    print("4. Copy the authorization code and paste it back here")
+                    print("The script will now start a local server and print an authentication URL.")
+                    print("1. Copy the URL and paste it into a browser on any device.")
+                    print("2. Approve the permissions.")
+                    print("3. The script will automatically complete the authentication.")
                     print("="*60 + "\n")
                     
-                    try:
-                        # Set redirect URI for installed app
-                        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
-                        
-                        # Get the authorization URL
-                        auth_url, _ = flow.authorization_url(prompt='consent')
-                        print(f"Please visit this URL to authorize the application:")
-                        print(f"{auth_url}\n")
-                        
-                        # Get the authorization code from user
-                        auth_code = input("Enter the authorization code: ").strip()
-                        
-                        if not auth_code:
-                            logger.error("No authorization code provided")
-                            return False
-                        
-                        print("Exchanging authorization code for credentials...")
-                        logger.info("Attempting to exchange authorization code for credentials")
-                        
-                        # Exchange the code for credentials with timeout
-                        import socket
-                        original_timeout = socket.getdefaulttimeout()
-                        socket.setdefaulttimeout(30)  # 30 second timeout
-                        
-                        try:
-                            # Try to fetch token with detailed error handling
-                            flow.fetch_token(code=auth_code)
-                            creds = flow.credentials
-                            
-                            # Verify credentials work
-                            if creds and creds.valid:
-                                logger.info("Authentication successful with manual mode")
-                                print("✓ Authentication successful!")
-                            else:
-                                logger.error("Credentials are invalid after token exchange")
-                                return False
-                                
-                        except Exception as token_error:
-                            logger.error(f"Token exchange failed: {token_error}")
-                            print(f"✗ Token exchange failed: {token_error}")
-                            
-                            # Check if it's a common error
-                            if "invalid_grant" in str(token_error):
-                                print("The authorization code may have expired or been used already.")
-                                print("Please try the authentication process again with a fresh code.")
-                            elif "invalid_request" in str(token_error):
-                                print("The authorization code format is invalid.")
-                                print("Make sure you copied the entire code correctly.")
-                            
-                            return False
-                        finally:
-                            socket.setdefaulttimeout(original_timeout)
-                    except Exception as e:
-                        logger.error(f"Manual authentication failed: {e}")
+                    creds = flow.run_local_server(open_browser=False)
+                    
+                    if creds and creds.valid:
+                        logger.info("Authentication successful with loopback flow.")
+                        print("\n✓ Authentication successful!")
+                    else:
+                        logger.error("Authentication failed with loopback flow.")
                         return False
-                else:
-                    # Try local server with browser
-                    try:
-                        creds = flow.run_local_server(port=0)
-                        logger.info("Authentication successful with browser mode")
-                    except Exception as e:
-                        logger.warning(f"Browser authentication failed: {e}")
-                        logger.info("Falling back to manual authentication...")
-                        
-                        try:
-                            # Set redirect URI for installed app
-                            flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
-                            
-                            # Get the authorization URL
-                            auth_url, _ = flow.authorization_url(prompt='consent')
-                            print(f"\nPlease visit this URL to authorize the application:")
-                            print(f"{auth_url}\n")
-                            
-                            # Get the authorization code from user
-                            auth_code = input("Enter the authorization code: ").strip()
-                            
-                            if not auth_code:
-                                logger.error("No authorization code provided")
-                                return False
-                            
-                            print("Exchanging authorization code for credentials...")
-                            logger.info("Attempting to exchange authorization code for credentials")
-                            
-                            # Exchange the code for credentials with timeout
-                            import socket
-                            original_timeout = socket.getdefaulttimeout()
-                            socket.setdefaulttimeout(30)  # 30 second timeout
-                            
-                            try:
-                                flow.fetch_token(code=auth_code)
-                                creds = flow.credentials
-                                logger.info("Authentication successful with manual fallback mode")
-                                print("✓ Authentication successful!")
-                            finally:
-                                socket.setdefaulttimeout(original_timeout)
-                        except Exception as e2:
-                            logger.error(f"All authentication methods failed: {e2}")
-                            return False
+
+                except Exception as e:
+                    logger.error(f"Authentication failed: {e}")
+                    return False
             
             # Save the credentials for the next run
             with open(self.token_file, 'w') as token:
