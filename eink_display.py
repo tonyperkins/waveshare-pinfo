@@ -268,7 +268,7 @@ class EInkDisplay:
             
             # === WIND SECTION ===
             wind_section_y = temp_section_y + temp_section_height + 15
-            wind_section_height = 70  # Increased for labels
+            wind_section_height = 80  # Increased for better spacing
             
             # Draw wind section box
             self.draw_section_box(draw, margin, wind_section_y, self.width - 2*margin, wind_section_height, 0, 2)
@@ -283,13 +283,13 @@ class EInkDisplay:
                 wind_value = f"{wind_speed} {wind_unit}"
                 wind_width = draw.textlength(wind_value, font=self.font_large_details)
                 wind_start_x = wind_x - wind_width // 2
-                self.draw_left_aligned_text(draw, wind_start_x, wind_section_y + 40, wind_value, self.font_large_details, 0)
+                self.draw_left_aligned_text(draw, wind_start_x, wind_section_y + 45, wind_value, self.font_large_details, 0)
                 
                 # Draw gust speed
                 gust_value = f"{wind_gust} {wind_unit}"
                 gust_width = draw.textlength(gust_value, font=self.font_large_details)
                 gust_start_x = gust_x - gust_width // 2
-                self.draw_left_aligned_text(draw, gust_start_x, wind_section_y + 40, gust_value, self.font_large_details, 0)
+                self.draw_left_aligned_text(draw, gust_start_x, wind_section_y + 45, gust_value, self.font_large_details, 0)
                 
                 # Add labels
                 wind_label_width = draw.textlength("WIND", font=self.font_tiny)
@@ -302,14 +302,14 @@ class EInkDisplay:
             else:
                 # Single wind value centered
                 wind_value = f"{wind_speed} {wind_unit}"
-                self.draw_centered_text(draw, wind_section_y + 40, wind_value, self.font_large_details, 0)
+                self.draw_centered_text(draw, wind_section_y + 45, wind_value, self.font_large_details, 0)
                 
                 # Add label
                 self.draw_centered_text(draw, wind_section_y + 15, "WIND", self.font_tiny, 0)
             
             # === RAIN AND HUMIDITY SECTION ===
             rain_section_y = wind_section_y + wind_section_height + 15
-            rain_section_height = 70  # Increased for labels
+            rain_section_height = 80  # Increased for better spacing
             
             # Draw rain/humidity section box
             self.draw_section_box(draw, margin, rain_section_y, self.width - 2*margin, rain_section_height, 0, 2)
@@ -322,13 +322,13 @@ class EInkDisplay:
             rain_value = f"{daily_rain} {rain_unit}"
             rain_width = draw.textlength(rain_value, font=self.font_large_details)
             rain_start_x = rain_x - rain_width // 2
-            self.draw_left_aligned_text(draw, rain_start_x, rain_section_y + 40, rain_value, self.font_large_details, 0)
+            self.draw_left_aligned_text(draw, rain_start_x, rain_section_y + 45, rain_value, self.font_large_details, 0)
             
             # Draw humidity value
             humidity_value = f"{humidity}%"
             humidity_width = draw.textlength(humidity_value, font=self.font_large_details)
             humidity_start_x = humidity_x - humidity_width // 2
-            self.draw_left_aligned_text(draw, humidity_start_x, rain_section_y + 40, humidity_value, self.font_large_details, 0)
+            self.draw_left_aligned_text(draw, humidity_start_x, rain_section_y + 45, humidity_value, self.font_large_details, 0)
             
             # Add labels
             rain_label_width = draw.textlength("RAIN", font=self.font_tiny)
