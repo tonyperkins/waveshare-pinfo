@@ -1,0 +1,23 @@
+[Unit]
+Description=Google Photos E-ink Display Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/waveshare-pinfo
+Environment=PYTHONPATH=/home/pi/waveshare-pinfo
+ExecStart=/usr/bin/python3 /home/pi/waveshare-pinfo/photo_display_service.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables (optional - can also use .env file)
+# Environment=GOOGLE_PHOTOS_ALBUM_ID=your_album_id
+# Environment=PHOTO_ROTATION_INTERVAL_MINUTES=30
+
+[Install]
+WantedBy=multi-user.target
