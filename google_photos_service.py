@@ -62,7 +62,44 @@ class GooglePhotosService:
                 
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.credentials_file, self.SCOPES)
-                creds = flow.run_local_server(port=0)
+                
+                # Check if we're in a headless environment
+                import os
+                headless = not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY')
+                
+                if headless:
+                    logger.info("Headless environment detected, using console authentication")
+                    print("\n" + "="*60)
+                    print(" GOOGLE PHOTOS AUTHENTICATION REQUIRED")
+                    print("="*60)
+                    print("Please complete authentication in your web browser:")
+                    print("1. Copy the URL that appears below")
+                    print("2. Open it in a web browser on any device")
+                    print("3. Sign in and authorize the application")
+                    print("4. Copy the authorization code and paste it back here")
+                    print("="*60 + "\n")
+                    
+                    try:
+                        creds = flow.run_console()
+                        logger.info("Authentication successful with console mode")
+                    except Exception as e:
+                        logger.error(f"Console authentication failed: {e}")
+                        return False
+                else:
+                    # Try local server with browser
+                    try:
+                        creds = flow.run_local_server(port=0)
+                        logger.info("Authentication successful with browser mode")
+                    except Exception as e:
+                        logger.warning(f"Browser authentication failed: {e}")
+                        logger.info("Falling back to console authentication...")
+                        
+                        try:
+                            creds = flow.run_console()
+                            logger.info("Authentication successful with console mode")
+                        except Exception as e2:
+                            logger.error(f"All authentication methods failed: {e2}")
+                            return False
             
             # Save the credentials for the next run
             with open(self.token_file, 'w') as token:

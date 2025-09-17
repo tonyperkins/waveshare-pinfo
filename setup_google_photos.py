@@ -82,11 +82,21 @@ def test_authentication():
     service = GooglePhotosService()
     
     print("Attempting to authenticate with Google Photos...")
+    print("Note: If you're in a headless environment (no GUI), you'll need to:")
+    print("1. Copy the authentication URL to a browser on another device")
+    print("2. Complete the authentication process")
+    print("3. Copy the authorization code back to this terminal")
+    print()
+    
     if service.authenticate():
         print("✓ Authentication successful!")
         return service
     else:
         print("✗ Authentication failed!")
+        print("\nTroubleshooting tips:")
+        print("- Make sure credentials.json is valid")
+        print("- Check that Photos Library API is enabled")
+        print("- Verify your Google account has access to Google Photos")
         return None
 
 def list_albums(service):
