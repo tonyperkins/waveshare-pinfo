@@ -79,6 +79,9 @@ class GooglePhotosService:
                     print("="*60 + "\n")
                     
                     try:
+                        # Set redirect URI for installed app
+                        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+                        
                         # Get the authorization URL
                         auth_url, _ = flow.authorization_url(prompt='consent')
                         print(f"Please visit this URL to authorize the application:")
@@ -104,6 +107,9 @@ class GooglePhotosService:
                         logger.info("Falling back to manual authentication...")
                         
                         try:
+                            # Set redirect URI for installed app
+                            flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+                            
                             # Get the authorization URL
                             auth_url, _ = flow.authorization_url(prompt='consent')
                             print(f"\nPlease visit this URL to authorize the application:")
