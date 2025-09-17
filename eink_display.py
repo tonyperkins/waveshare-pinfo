@@ -23,16 +23,20 @@ class EInkDisplay:
         self.width = self.epd.width
         self.height = self.epd.height
         
-        # Load fonts with proper sizes
+        # Load fonts with improved sizes for better space utilization
         try:
-            self.font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
-            self.font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
-            self.font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
+            self.font_xlarge = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
+            self.font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+            self.font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
+            self.font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
+            self.font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
         except OSError:
             # Fallback to default fonts if system fonts not available
+            self.font_xlarge = ImageFont.load_default()
             self.font_large = ImageFont.load_default()
             self.font_medium = ImageFont.load_default()
             self.font_small = ImageFont.load_default()
+            self.font_tiny = ImageFont.load_default()
         
         # Load environment variables
         self.homeassistant_url = os.getenv('HOME_ASSISTANT_URL')
@@ -82,6 +86,48 @@ class EInkDisplay:
         text_width = draw.textlength(text, font=font)
         x = (self.width - text_width) // 2
         draw.text((x, y), text, font=font, fill=color)
+        
+    def draw_left_aligned_text(self, draw, x, y, text, font, color=0):
+        """Draw left-aligned text on the image"""
+        draw.text((x, y), text, font=font, fill=color)
+        
+    def draw_right_aligned_text(self, draw, x, y, text, font, color=0):
+        """Draw right-aligned text on the image"""
+        text_width = draw.textlength(text, font=font)
+        draw.text((x - text_width, y), text, font=font, fill=color)
+        
+    def draw_horizontal_line(self, draw, y, color=0, thickness=2):
+        """Draw a horizontal line across the width"""
+        for i in range(thickness):
+            draw.line([(10, y + i), (self.width - 10, y + i)], fill=color)
+            
+    def draw_section_box(self, draw, x, y, width, height, color=0, thickness=2):
+        """Draw a rectangular border"""
+        for i in range(thickness):
+            draw.rectangle([x + i, y + i, x + width - i, y + height - i], outline=color, fill=None)
+            
+    def get_weather_icon(self, temp, humidity, wind_speed, rain):
+        """Get a simple text-based weather icon"""
+        try:
+            temp_val = float(temp) if temp != 'N/A' else 0
+            humidity_val = float(humidity) if humidity != 'N/A' else 0
+            wind_val = float(wind_speed) if wind_speed != 'N/A' else 0
+            rain_val = float(rain) if rain != 'N/A' else 0
+            
+            if rain_val > 0.1:
+                return "🌧"
+            elif wind_val > 15:
+                return "💨"
+            elif humidity_val > 80:
+                return "🌫"
+            elif temp_val > 80:
+                return "☀"
+            elif temp_val < 40:
+                return "❄"
+            else:
+                return "⛅"
+        except:
+            return "⛅"
     
     def update_display(self):
         """Update the display with current information"""
@@ -90,14 +136,26 @@ class EInkDisplay:
             image = Image.new('RGB', (self.width, self.height), 'white')
             draw = ImageDraw.Draw(image)
             
+            # Define layout margins and sections
+            margin = 15
+            header_height = 80
+            main_section_y = header_height + 20
+            
             # Get current time
             now = datetime.now()
             time_str = now.strftime("%H:%M")
             date_str = now.strftime("%A, %B %d")
             
-            # Draw header with larger fonts
-            self.draw_centered_text(draw, 10, time_str, self.font_large, 0)
-            self.draw_centered_text(draw, 55, date_str, self.font_medium, 0)
+            # === HEADER SECTION ===
+            # Draw main border around entire display
+            self.draw_section_box(draw, 5, 5, self.width - 10, self.height - 10, 0, 3)
+            
+            # Draw time prominently in header
+            self.draw_centered_text(draw, 15, time_str, self.font_xlarge, 0)
+            self.draw_centered_text(draw, 65, date_str, self.font_small, 0)
+            
+            # Draw horizontal line under header
+            self.draw_horizontal_line(draw, header_height + 10, 0, 2)
             
             # Get Ecowitt weather data
             temp_data = self.get_homeassistant_entity("sensor.gw1200b_outdoor_temperature")
@@ -123,38 +181,62 @@ class EInkDisplay:
             
             feels_like = feels_like_data.get('state', 'N/A') if feels_like_data else 'N/A'
             
-            # Format weather display with better spacing
+            # === MAIN TEMPERATURE SECTION ===
+            temp_section_y = main_section_y
+            temp_section_height = 120
+            
+            # Draw temperature section box
+            self.draw_section_box(draw, margin, temp_section_y, self.width - 2*margin, temp_section_height, 0, 2)
+            
+            # Get weather icon
+            weather_icon = self.get_weather_icon(temp, humidity, wind_speed, daily_rain)
+            
+            # Draw large temperature with icon
             temp_line = f"{temp}{temp_unit}"
+            temp_with_icon = f"{weather_icon} {temp_line}"
+            self.draw_centered_text(draw, temp_section_y + 25, temp_with_icon, self.font_xlarge, 0)
+            
+            # Draw "feels like" if different
             if feels_like != 'N/A' and feels_like != temp:
                 feels_line = f"Feels like {feels_like}{temp_unit}"
-            else:
-                feels_line = None
+                self.draw_centered_text(draw, temp_section_y + 80, feels_line, self.font_tiny, 0)
             
-            humidity_line = f"Humidity {humidity}{humidity_unit}"
-            wind_line = f"Wind {wind_speed} {wind_unit}"
+            # === WEATHER DETAILS SECTION ===
+            details_section_y = temp_section_y + temp_section_height + 15
+            details_section_height = self.height - details_section_y - 20
+            
+            # Draw details section box
+            self.draw_section_box(draw, margin, details_section_y, self.width - 2*margin, details_section_height, 0, 2)
+            
+            # Two-column layout for weather details
+            left_col_x = margin + 20
+            right_col_x = self.width // 2 + 10
+            detail_y_start = details_section_y + 20
+            line_height = 35
+            
+            # Left column - Humidity and Wind
+            self.draw_left_aligned_text(draw, left_col_x, detail_y_start, "💧 HUMIDITY", self.font_tiny, 0)
+            self.draw_left_aligned_text(draw, left_col_x, detail_y_start + 20, f"{humidity}{humidity_unit}", self.font_medium, 0)
+            
+            wind_display = f"{wind_speed} {wind_unit}"
             if wind_gust != 'N/A' and wind_gust != wind_speed:
-                wind_line += f" (gust {wind_gust})"
-            rain_line = f"Rain {daily_rain} {rain_unit}"
+                wind_display += f"\nGusts: {wind_gust} {wind_unit}"
             
-            # Draw weather information with proper spacing for larger fonts
-            y_pos = 100
-            self.draw_centered_text(draw, y_pos, temp_line, self.font_large, 0)
-            y_pos += 45
+            self.draw_left_aligned_text(draw, left_col_x, detail_y_start + line_height + 20, "💨 WIND", self.font_tiny, 0)
+            wind_lines = wind_display.split('\n')
+            for i, line in enumerate(wind_lines):
+                self.draw_left_aligned_text(draw, left_col_x, detail_y_start + line_height + 40 + (i * 25), line, self.font_medium, 0)
             
-            if feels_line:
-                self.draw_centered_text(draw, y_pos, feels_line, self.font_small, 0)
-                y_pos += 30
+            # Right column - Rain and additional info
+            self.draw_left_aligned_text(draw, right_col_x, detail_y_start, "🌧 RAIN TODAY", self.font_tiny, 0)
+            self.draw_left_aligned_text(draw, right_col_x, detail_y_start + 20, f"{daily_rain} {rain_unit}", self.font_medium, 0)
             
-            self.draw_centered_text(draw, y_pos, humidity_line, self.font_medium, 0)
-            y_pos += 35
-            
-            self.draw_centered_text(draw, y_pos, wind_line, self.font_medium, 0)
-            y_pos += 35
-            
-            self.draw_centered_text(draw, y_pos, rain_line, self.font_medium, 0)
+            # Add update time at bottom
+            update_time = now.strftime("%I:%M %p")
+            self.draw_centered_text(draw, self.height - 35, f"Updated: {update_time}", self.font_tiny, 0)
             
             # Create content hash to detect changes
-            content_string = f"{time_str}|{date_str}|{temp_line}|{humidity_line}|{wind_line}|{rain_line}"
+            content_string = f"{time_str}|{date_str}|{temp_line}|{humidity}|{wind_speed}|{daily_rain}|{feels_like}"
             import hashlib
             content_hash = hashlib.md5(content_string.encode()).hexdigest()
             
