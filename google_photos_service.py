@@ -64,7 +64,6 @@ class GooglePhotosService:
                     self.credentials_file, self.SCOPES)
                 
                 # Check if we're in a headless environment
-                import os
                 headless = not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY')
                 
                 if headless:
