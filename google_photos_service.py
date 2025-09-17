@@ -248,17 +248,21 @@ class GooglePhotosService:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error in API request: {e}")
-            if e.response:
-                logger.error(f"Response status: {e.response.status_code}")
-                logger.error(f"Response headers: {dict(e.response.headers)}")
+            logger.error(f"HTTPError encountered: {e}")
+            if e.response is not None:
+                logger.error(f"--- Detailed HTTP Error ---")
+                logger.error(f"Status Code: {e.response.status_code}")
+                logger.error(f"Headers: {e.response.headers}")
                 try:
-                    error_content = e.response.json()
-                    logger.error(f"Response JSON: {error_content}")
-                except:
-                    logger.error(f"Response text: {e.response.text}")
+                    # Try to parse and log the JSON response body
+                    error_details = e.response.json()
+                    logger.error(f"Response JSON Body: {error_details}")
+                except ValueError:
+                    # If it's not JSON, log as plain text
+                    logger.error(f"Response Text Body: {e.response.text}")
+                logger.error(f"---------------------------")
             else:
-                logger.error("No response object available")
+                logger.error("HTTPError was raised, but it has no 'response' attribute. This is unusual.")
             return None
         except Exception as e:
             logger.error(f"Direct API request failed: {e}")
