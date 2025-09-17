@@ -26,6 +26,7 @@ class EInkDisplay:
         # Load fonts with improved sizes for better space utilization
         try:
             self.font_xlarge = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
+            self.font_large_details = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)  # 80% of xlarge
             self.font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
             self.font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
             self.font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
@@ -33,6 +34,7 @@ class EInkDisplay:
         except OSError:
             # Fallback to default fonts if system fonts not available
             self.font_xlarge = ImageFont.load_default()
+            self.font_large_details = ImageFont.load_default()
             self.font_large = ImageFont.load_default()
             self.font_medium = ImageFont.load_default()
             self.font_small = ImageFont.load_default()
@@ -141,41 +143,59 @@ class EInkDisplay:
             if self.last_minute == current_minute:
                 return
             
-            # Check if the display supports partial updates
-            if hasattr(self.epd, 'displayPartial') or hasattr(self.epd, 'displayPartBaseImage'):
-                # Create a small image for just the time areas
-                time_image = Image.new('RGB', (self.width, self.height), 'white')
-                time_draw = ImageDraw.Draw(time_image)
-                
-                # Draw main border (to maintain visual consistency)
-                self.draw_section_box(time_draw, 5, 5, self.width - 10, self.height - 10, 0, 3)
-                
-                # Draw time/date in upper left
-                time_str = now.strftime("%I:%M %p")
-                date_str = now.strftime("%A, %B %d")
-                self.draw_left_aligned_text(time_draw, 20, 15, time_str, self.font_large, 0)
-                self.draw_left_aligned_text(time_draw, 20, 50, date_str, self.font_tiny, 0)
-                
-                # Draw last updated in upper right
-                self.draw_right_aligned_text(time_draw, self.width - 20, 15, "Updated:", self.font_tiny, 0)
-                self.draw_right_aligned_text(time_draw, self.width - 20, 35, current_minute, self.font_medium, 0)
-                
-                # Try partial update
-                try:
-                    if hasattr(self.epd, 'displayPartial'):
-                        self.epd.displayPartial(self.epd.getbuffer(time_image))
-                    elif hasattr(self.epd, 'displayPartBaseImage'):
-                        self.epd.displayPartBaseImage(self.epd.getbuffer(time_image))
-                    
-                    self.last_minute = current_minute
-                    logger.info(f"Time updated via partial refresh: {time_str}")
-                    return
-                except Exception as partial_error:
-                    logger.warning(f"Partial update failed: {partial_error}, falling back to smart update")
+            # Debug: Log available methods on the display object
+            logger.info(f"Available EPD methods: {[method for method in dir(self.epd) if 'display' in method.lower() or 'partial' in method.lower()]}")
             
-            # Fallback: Only do full update if it's been more than 5 minutes since last weather update
-            # This prevents too frequent full updates while keeping time reasonably current
-            logger.info("Partial update not available, skipping time-only update")
+            # Try different partial update method names for Waveshare displays
+            partial_methods = [
+                'displayPartial',
+                'displayPartBaseImage', 
+                'DisplayPartial',
+                'DisplayPartBaseImage',
+                'display_partial',
+                'displayPart',
+                'DisplayPart'
+            ]
+            
+            time_str = now.strftime("%I:%M %p")
+            date_str = now.strftime("%A, %B %d")
+            
+            # Try each possible partial update method
+            for method_name in partial_methods:
+                if hasattr(self.epd, method_name):
+                    try:
+                        logger.info(f"Attempting partial update with method: {method_name}")
+                        
+                        # Create a small image for just the time areas
+                        time_image = Image.new('RGB', (self.width, self.height), 'white')
+                        time_draw = ImageDraw.Draw(time_image)
+                        
+                        # Draw main border (to maintain visual consistency)
+                        self.draw_section_box(time_draw, 5, 5, self.width - 10, self.height - 10, 0, 3)
+                        
+                        # Draw time/date in upper left
+                        self.draw_left_aligned_text(time_draw, 20, 15, time_str, self.font_large, 0)
+                        self.draw_left_aligned_text(time_draw, 20, 50, date_str, self.font_tiny, 0)
+                        
+                        # Draw last updated in upper right
+                        self.draw_right_aligned_text(time_draw, self.width - 20, 15, "Updated:", self.font_tiny, 0)
+                        self.draw_right_aligned_text(time_draw, self.width - 20, 35, current_minute, self.font_medium, 0)
+                        
+                        # Try the partial update method
+                        method = getattr(self.epd, method_name)
+                        method(self.epd.getbuffer(time_image))
+                        
+                        self.last_minute = current_minute
+                        logger.info(f"Time updated via partial refresh using {method_name}: {time_str}")
+                        return
+                        
+                    except Exception as partial_error:
+                        logger.warning(f"Partial update method {method_name} failed: {partial_error}")
+                        continue
+            
+            # If no partial update methods work, log this and skip the update
+            logger.warning("No working partial update methods found. Skipping time-only update to avoid slow full refresh.")
+            logger.info(f"Time change detected ({current_minute}) but not updating display to avoid slow refresh")
             self.last_minute = current_minute
             
         except Exception as e:
@@ -302,8 +322,8 @@ class EInkDisplay:
             # Create the details line
             details_line = f"💧 {humidity}{humidity_unit}  •  💨 {wind_display}  •  🌧 {daily_rain} {rain_unit}"
             
-            # Draw the details line centered with same font as temperature (xlarge)
-            self.draw_centered_text(draw, detail_y, details_line, self.font_xlarge, 0)
+            # Draw the details line centered with 80% of temperature font size
+            self.draw_centered_text(draw, detail_y, details_line, self.font_large_details, 0)
             
             # Create content hash for weather data only (excluding time)
             weather_string = f"{temp_line}|{humidity}|{wind_speed}|{daily_rain}|{feels_like}"
