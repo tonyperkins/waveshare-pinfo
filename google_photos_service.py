@@ -182,13 +182,44 @@ class GooglePhotosService:
                 token.write(creds.to_json())
         
         self.credentials = creds
-        self.service = build('photoslibrary', 'v1', credentials=creds)
-        logger.info("Successfully authenticated with Google Photos API")
+        
+        # Build the service with discovery document URL
+        try:
+            # Try with explicit discovery service URL
+            discovery_url = 'https://photoslibrary.googleapis.com/$discovery/rest?version=v1'
+            self.service = build('photoslibrary', 'v1', credentials=creds, 
+                               discoveryServiceUrl=discovery_url, cache_discovery=False)
+            logger.info("Successfully authenticated with Google Photos API")
+        except Exception as e:
+            logger.warning(f"Failed to build service with discovery URL: {e}")
+            # Fallback to direct API calls without discovery
+            self.service = None
+            logger.info("Will use direct API calls instead of discovery service")
+        
         return True
+    
+    def _make_api_request(self, url, method='GET', data=None):
+        """Make direct API request when discovery service fails"""
+        headers = {
+            'Authorization': f'Bearer {self.credentials.token}',
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            if method == 'GET':
+                response = requests.get(url, headers=headers, timeout=30)
+            elif method == 'POST':
+                response = requests.post(url, headers=headers, json=data, timeout=30)
+            
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Direct API request failed: {e}")
+            return None
     
     def get_album_photos(self, album_id=None):
         """Fetch photos from a specific album or all photos if no album specified"""
-        if not self.service:
+        if not self.service and not self.credentials:
             if not self.authenticate():
                 return []
         
@@ -209,7 +240,14 @@ class GooglePhotosService:
                     if page_token:
                         request_body['pageToken'] = page_token
                     
-                    response = self.service.mediaItems().search(body=request_body).execute()
+                    if self.service:
+                        response = self.service.mediaItems().search(body=request_body).execute()
+                    else:
+                        # Use direct API call
+                        url = 'https://photoslibrary.googleapis.com/v1/mediaItems:search'
+                        response = self._make_api_request(url, 'POST', request_body)
+                        if not response:
+                            break
                     
                     if 'mediaItems' in response:
                         for item in response['mediaItems']:
@@ -242,7 +280,14 @@ class GooglePhotosService:
                     if page_token:
                         request_body['pageToken'] = page_token
                     
-                    response = self.service.mediaItems().search(body=request_body).execute()
+                    if self.service:
+                        response = self.service.mediaItems().search(body=request_body).execute()
+                    else:
+                        # Use direct API call
+                        url = 'https://photoslibrary.googleapis.com/v1/mediaItems:search'
+                        response = self._make_api_request(url, 'POST', request_body)
+                        if not response:
+                            break
                     
                     if 'mediaItems' in response:
                         for item in response['mediaItems']:
@@ -271,7 +316,7 @@ class GooglePhotosService:
     
     def list_albums(self):
         """List available albums"""
-        if not self.service:
+        if not self.service and not self.credentials:
             if not self.authenticate():
                 return []
         
@@ -280,11 +325,20 @@ class GooglePhotosService:
             page_token = None
             
             while True:
-                request = self.service.albums().list(pageSize=50)
-                if page_token:
-                    request = self.service.albums().list(pageSize=50, pageToken=page_token)
-                
-                response = request.execute()
+                if self.service:
+                    request = self.service.albums().list(pageSize=50)
+                    if page_token:
+                        request = self.service.albums().list(pageSize=50, pageToken=page_token)
+                    response = request.execute()
+                else:
+                    # Use direct API call
+                    url = 'https://photoslibrary.googleapis.com/v1/albums'
+                    params = {'pageSize': 50}
+                    if page_token:
+                        params['pageToken'] = page_token
+                    response = self._make_api_request(f"{url}?{'&'.join([f'{k}={v}' for k, v in params.items()])}")
+                    if not response:
+                        break
                 
                 if 'albums' in response:
                     for album in response['albums']:
