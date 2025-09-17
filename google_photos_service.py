@@ -67,7 +67,7 @@ class GooglePhotosService:
                 headless = not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY')
                 
                 if headless:
-                    logger.info("Headless environment detected, using console authentication")
+                    logger.info("Headless environment detected, using manual authentication")
                     print("\n" + "="*60)
                     print(" GOOGLE PHOTOS AUTHENTICATION REQUIRED")
                     print("="*60)
@@ -79,10 +79,20 @@ class GooglePhotosService:
                     print("="*60 + "\n")
                     
                     try:
-                        creds = flow.run_console()
-                        logger.info("Authentication successful with console mode")
+                        # Get the authorization URL
+                        auth_url, _ = flow.authorization_url(prompt='consent')
+                        print(f"Please visit this URL to authorize the application:")
+                        print(f"{auth_url}\n")
+                        
+                        # Get the authorization code from user
+                        auth_code = input("Enter the authorization code: ").strip()
+                        
+                        # Exchange the code for credentials
+                        flow.fetch_token(code=auth_code)
+                        creds = flow.credentials
+                        logger.info("Authentication successful with manual mode")
                     except Exception as e:
-                        logger.error(f"Console authentication failed: {e}")
+                        logger.error(f"Manual authentication failed: {e}")
                         return False
                 else:
                     # Try local server with browser
@@ -91,11 +101,21 @@ class GooglePhotosService:
                         logger.info("Authentication successful with browser mode")
                     except Exception as e:
                         logger.warning(f"Browser authentication failed: {e}")
-                        logger.info("Falling back to console authentication...")
+                        logger.info("Falling back to manual authentication...")
                         
                         try:
-                            creds = flow.run_console()
-                            logger.info("Authentication successful with console mode")
+                            # Get the authorization URL
+                            auth_url, _ = flow.authorization_url(prompt='consent')
+                            print(f"\nPlease visit this URL to authorize the application:")
+                            print(f"{auth_url}\n")
+                            
+                            # Get the authorization code from user
+                            auth_code = input("Enter the authorization code: ").strip()
+                            
+                            # Exchange the code for credentials
+                            flow.fetch_token(code=auth_code)
+                            creds = flow.credentials
+                            logger.info("Authentication successful with manual fallback mode")
                         except Exception as e2:
                             logger.error(f"All authentication methods failed: {e2}")
                             return False
