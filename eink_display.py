@@ -45,6 +45,8 @@ class EInkDisplay:
         # Track last content to avoid unnecessary updates
         self.last_content_hash = None
         self.update_count = 0
+        self.last_minute = None
+        self.last_weather_hash = None
         
     def init_display(self):
         """Initialize the e-ink display"""
@@ -129,6 +131,56 @@ class EInkDisplay:
         except:
             return "⛅"
     
+    def update_time_only(self):
+        """Fast partial update for just the time display"""
+        try:
+            now = datetime.now()
+            current_minute = now.strftime("%I:%M %p")
+            
+            # Only update if the minute has changed
+            if self.last_minute == current_minute:
+                return
+            
+            # Check if the display supports partial updates
+            if hasattr(self.epd, 'displayPartial') or hasattr(self.epd, 'displayPartBaseImage'):
+                # Create a small image for just the time areas
+                time_image = Image.new('RGB', (self.width, self.height), 'white')
+                time_draw = ImageDraw.Draw(time_image)
+                
+                # Draw main border (to maintain visual consistency)
+                self.draw_section_box(time_draw, 5, 5, self.width - 10, self.height - 10, 0, 3)
+                
+                # Draw time/date in upper left
+                time_str = now.strftime("%I:%M %p")
+                date_str = now.strftime("%A, %B %d")
+                self.draw_left_aligned_text(time_draw, 20, 15, time_str, self.font_large, 0)
+                self.draw_left_aligned_text(time_draw, 20, 50, date_str, self.font_tiny, 0)
+                
+                # Draw last updated in upper right
+                self.draw_right_aligned_text(time_draw, self.width - 20, 15, "Updated:", self.font_tiny, 0)
+                self.draw_right_aligned_text(time_draw, self.width - 20, 35, current_minute, self.font_medium, 0)
+                
+                # Try partial update
+                try:
+                    if hasattr(self.epd, 'displayPartial'):
+                        self.epd.displayPartial(self.epd.getbuffer(time_image))
+                    elif hasattr(self.epd, 'displayPartBaseImage'):
+                        self.epd.displayPartBaseImage(self.epd.getbuffer(time_image))
+                    
+                    self.last_minute = current_minute
+                    logger.info(f"Time updated via partial refresh: {time_str}")
+                    return
+                except Exception as partial_error:
+                    logger.warning(f"Partial update failed: {partial_error}, falling back to smart update")
+            
+            # Fallback: Only do full update if it's been more than 5 minutes since last weather update
+            # This prevents too frequent full updates while keeping time reasonably current
+            logger.info("Partial update not available, skipping time-only update")
+            self.last_minute = current_minute
+            
+        except Exception as e:
+            logger.error(f"Error in time update: {e}")
+    
     def update_display(self):
         """Update the display with current information"""
         try:
@@ -155,9 +207,9 @@ class EInkDisplay:
             self.draw_left_aligned_text(draw, 20, 15, time_str, self.font_large, 0)
             self.draw_left_aligned_text(draw, 20, 50, date_str, self.font_tiny, 0)
             
-            # Draw last updated in upper right
+            # Draw last updated in upper right (slightly smaller than main time)
             self.draw_right_aligned_text(draw, self.width - 20, 15, "Updated:", self.font_tiny, 0)
-            self.draw_right_aligned_text(draw, self.width - 20, 35, update_time, self.font_small, 0)
+            self.draw_right_aligned_text(draw, self.width - 20, 35, update_time, self.font_medium, 0)
             
             # Draw horizontal line under header
             self.draw_horizontal_line(draw, header_height + 10, 0, 2)
@@ -208,23 +260,19 @@ class EInkDisplay:
             temp_x = quarter_width
             feels_x = 3 * quarter_width
             
-            # Draw both temperatures with equal size
-            self.draw_centered_text(draw, temp_section_y + 55, temp_line, self.font_large, 0)
-            
             # Only show feels-like if it's different and available
             if feels_like != 'N/A' and feels_like != temp:
                 # Draw temperature on left side
-                temp_width = draw.textlength(temp_line, font=self.font_large)
+                temp_width = draw.textlength(temp_line, font=self.font_xlarge)
                 temp_start_x = temp_x - temp_width // 2
-                self.draw_left_aligned_text(draw, temp_start_x, temp_section_y + 55, temp_line, self.font_large, 0)
+                self.draw_left_aligned_text(draw, temp_start_x, temp_section_y + 55, temp_line, self.font_xlarge, 0)
                 
                 # Draw feels-like on right side
-                feels_width = draw.textlength(feels_line, font=self.font_large)
+                feels_width = draw.textlength(feels_line, font=self.font_xlarge)
                 feels_start_x = feels_x - feels_width // 2
-                self.draw_left_aligned_text(draw, feels_start_x, temp_section_y + 55, feels_line, self.font_large, 0)
+                self.draw_left_aligned_text(draw, feels_start_x, temp_section_y + 55, feels_line, self.font_xlarge, 0)
                 
                 # Add labels
-                self.draw_centered_text(draw, temp_section_y + 35, "ACTUAL", self.font_tiny, 0)
                 temp_label_width = draw.textlength("ACTUAL", font=self.font_tiny)
                 temp_label_x = temp_x - temp_label_width // 2
                 self.draw_left_aligned_text(draw, temp_label_x, temp_section_y + 35, "ACTUAL", self.font_tiny, 0)
@@ -234,17 +282,17 @@ class EInkDisplay:
                 self.draw_left_aligned_text(draw, feels_label_x, temp_section_y + 35, "FEELS LIKE", self.font_tiny, 0)
             else:
                 # Just show the single temperature centered
-                self.draw_centered_text(draw, temp_section_y + 55, temp_line, self.font_large, 0)
+                self.draw_centered_text(draw, temp_section_y + 55, temp_line, self.font_xlarge, 0)
             
             # === WEATHER DETAILS SECTION ===
             details_section_y = temp_section_y + temp_section_height + 15
-            details_section_height = 60  # Smaller section for single line
+            details_section_height = 80  # Larger section for bigger font
             
             # Draw details section box
             self.draw_section_box(draw, margin, details_section_y, self.width - 2*margin, details_section_height, 0, 2)
             
-            # Create single line with all weather details in smaller font
-            detail_y = details_section_y + 25
+            # Create single line with all weather details in larger font
+            detail_y = details_section_y + 30
             
             # Format wind display
             wind_display = f"{wind_speed} {wind_unit}"
@@ -254,26 +302,33 @@ class EInkDisplay:
             # Create the details line
             details_line = f"💧 {humidity}{humidity_unit}  •  💨 {wind_display}  •  🌧 {daily_rain} {rain_unit}"
             
-            # Draw the details line centered
-            self.draw_centered_text(draw, detail_y, details_line, self.font_tiny, 0)
+            # Draw the details line centered with larger font
+            self.draw_centered_text(draw, detail_y, details_line, self.font_small, 0)
             
-            # Create content hash to detect changes
-            content_string = f"{time_str}|{date_str}|{temp_line}|{humidity}|{wind_speed}|{daily_rain}|{feels_like}"
+            # Create content hash for weather data only (excluding time)
+            weather_string = f"{temp_line}|{humidity}|{wind_speed}|{daily_rain}|{feels_like}"
             import hashlib
-            content_hash = hashlib.md5(content_string.encode()).hexdigest()
+            weather_hash = hashlib.md5(weather_string.encode()).hexdigest()
             
-            # Skip update if content hasn't changed (except every 10th update for full refresh)
-            if (self.last_content_hash == content_hash and 
-                self.update_count % 10 != 0):
-                logger.info("Content unchanged, skipping display update")
-                return
+            # Check if weather data has changed
+            weather_changed = self.last_weather_hash != weather_hash
             
-            # Update display
-            self.epd.display(self.epd.getbuffer(image))
-            self.last_content_hash = content_hash
-            self.update_count += 1
+            # Force full update every 20th update for display refresh
+            force_full_update = self.update_count % 20 == 0
             
-            logger.info(f"Display updated successfully (update #{self.update_count})")
+            if weather_changed or force_full_update:
+                # Full update needed
+                self.epd.display(self.epd.getbuffer(image))
+                self.last_weather_hash = weather_hash
+                self.last_minute = now.strftime("%I:%M %p")  # Update time tracking
+                self.update_count += 1
+                logger.info(f"Full display update (update #{self.update_count})")
+            else:
+                logger.info("Weather unchanged, skipping full display update")
+            
+            # Always update the content hash for comparison
+            content_string = f"{time_str}|{date_str}|{temp_line}|{humidity}|{wind_speed}|{daily_rain}|{feels_like}"
+            self.last_content_hash = hashlib.md5(content_string.encode()).hexdigest()
             
         except Exception as e:
             logger.error(f"Error updating display: {e}")
@@ -284,7 +339,8 @@ class EInkDisplay:
         self.init_display()
         
         # Schedule updates
-        schedule.every(5).minutes.do(self.update_display)
+        schedule.every(5).minutes.do(self.update_display)  # Full weather update every 5 minutes
+        schedule.every(1).minute.do(self.update_time_only)  # Fast time update every minute
         
         # Initial update
         self.update_display()
