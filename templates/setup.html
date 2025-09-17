@@ -32,7 +32,7 @@
         let accessToken;
 
         const GOOGLE_CLIENT_ID = "{{ google_client_id }}";
-        const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.sharing';
+        const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly https://www.googleapis.com/auth/photoslibrary.sharing';
 
         function handleAuthClick() {
             console.log('Auth button clicked. Requesting access token.');
