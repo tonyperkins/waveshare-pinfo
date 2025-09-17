@@ -5,7 +5,7 @@ from google.oauth2.credentials import Credentials
 import os
 
 # Define the scopes (adjust as needed)
-SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly']
+SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata']
 
 # Path to your client secrets file (downloaded from Google Cloud Console)
 CLIENT_SECRETS_FILE = 'credentials.json'
