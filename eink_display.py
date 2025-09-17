@@ -298,7 +298,7 @@ class EInkDisplay:
             else:
                 # Single wind value centered
                 wind_value = f"{wind_speed} {wind_unit}"
-                self.draw_centered_text(draw, wind_section_y + 50, wind_value, self.font_large_details, 0)
+                self.draw_centered_text(draw, wind_section_y + 45, wind_value, self.font_large_details, 0)
                 
                 # Add label
                 self.draw_centered_text(draw, wind_section_y + 10, "WIND", self.font_tiny, 0)
@@ -318,13 +318,13 @@ class EInkDisplay:
             rain_value = f"{daily_rain} {rain_unit}"
             rain_width = draw.textlength(rain_value, font=self.font_large_details)
             rain_start_x = rain_x - rain_width // 2
-            self.draw_left_aligned_text(draw, rain_start_x, rain_section_y + 50, rain_value, self.font_large_details, 0)
+            self.draw_left_aligned_text(draw, rain_start_x, rain_section_y + 45, rain_value, self.font_large_details, 0)
             
             # Draw humidity value
             humidity_value = f"{humidity}%"
             humidity_width = draw.textlength(humidity_value, font=self.font_large_details)
             humidity_start_x = humidity_x - humidity_width // 2
-            self.draw_left_aligned_text(draw, humidity_start_x, rain_section_y + 50, humidity_value, self.font_large_details, 0)
+            self.draw_left_aligned_text(draw, humidity_start_x, rain_section_y + 45, humidity_value, self.font_large_details, 0)
             
             # Add labels
             rain_label_width = draw.textlength("RAIN", font=self.font_tiny)
