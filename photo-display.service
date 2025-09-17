@@ -1,19 +1,27 @@
 [Unit]
 Description=Google Photos E-ink Display Service
-After=network.target
-Wants=network.target
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=pi
 Group=pi
-WorkingDirectory=/home/pi/waveshare-pinfo
-Environment=PYTHONPATH=/home/pi/waveshare-pinfo
-ExecStart=/usr/bin/python3 /home/pi/waveshare-pinfo/photo_display_service.py
+WorkingDirectory=/opt/waveshare-pinfo
+Environment=PYTHONPATH=/opt/waveshare-pinfo
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/waveshare-pinfo/.venv/bin/python /opt/waveshare-pinfo/photo_display_service.py
 Restart=always
-RestartSec=10
+RestartSec=30
 StandardOutput=journal
 StandardError=journal
+
+# Ensure network connectivity before starting
+ExecStartPre=/bin/bash -c 'until ping -c1 google.com; do sleep 1; done'
+
+# Kill any existing processes on restart
+ExecStartPre=/bin/bash -c 'pkill -f photo_display_service.py || true'
 
 # Environment variables (optional - can also use .env file)
 # Environment=GOOGLE_PHOTOS_ALBUM_ID=your_album_id
