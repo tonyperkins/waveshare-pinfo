@@ -90,10 +90,46 @@ class GooglePhotosService:
                         # Get the authorization code from user
                         auth_code = input("Enter the authorization code: ").strip()
                         
-                        # Exchange the code for credentials
-                        flow.fetch_token(code=auth_code)
-                        creds = flow.credentials
-                        logger.info("Authentication successful with manual mode")
+                        if not auth_code:
+                            logger.error("No authorization code provided")
+                            return False
+                        
+                        print("Exchanging authorization code for credentials...")
+                        logger.info("Attempting to exchange authorization code for credentials")
+                        
+                        # Exchange the code for credentials with timeout
+                        import socket
+                        original_timeout = socket.getdefaulttimeout()
+                        socket.setdefaulttimeout(30)  # 30 second timeout
+                        
+                        try:
+                            # Try to fetch token with detailed error handling
+                            flow.fetch_token(code=auth_code)
+                            creds = flow.credentials
+                            
+                            # Verify credentials work
+                            if creds and creds.valid:
+                                logger.info("Authentication successful with manual mode")
+                                print("✓ Authentication successful!")
+                            else:
+                                logger.error("Credentials are invalid after token exchange")
+                                return False
+                                
+                        except Exception as token_error:
+                            logger.error(f"Token exchange failed: {token_error}")
+                            print(f"✗ Token exchange failed: {token_error}")
+                            
+                            # Check if it's a common error
+                            if "invalid_grant" in str(token_error):
+                                print("The authorization code may have expired or been used already.")
+                                print("Please try the authentication process again with a fresh code.")
+                            elif "invalid_request" in str(token_error):
+                                print("The authorization code format is invalid.")
+                                print("Make sure you copied the entire code correctly.")
+                            
+                            return False
+                        finally:
+                            socket.setdefaulttimeout(original_timeout)
                     except Exception as e:
                         logger.error(f"Manual authentication failed: {e}")
                         return False
@@ -118,10 +154,25 @@ class GooglePhotosService:
                             # Get the authorization code from user
                             auth_code = input("Enter the authorization code: ").strip()
                             
-                            # Exchange the code for credentials
-                            flow.fetch_token(code=auth_code)
-                            creds = flow.credentials
-                            logger.info("Authentication successful with manual fallback mode")
+                            if not auth_code:
+                                logger.error("No authorization code provided")
+                                return False
+                            
+                            print("Exchanging authorization code for credentials...")
+                            logger.info("Attempting to exchange authorization code for credentials")
+                            
+                            # Exchange the code for credentials with timeout
+                            import socket
+                            original_timeout = socket.getdefaulttimeout()
+                            socket.setdefaulttimeout(30)  # 30 second timeout
+                            
+                            try:
+                                flow.fetch_token(code=auth_code)
+                                creds = flow.credentials
+                                logger.info("Authentication successful with manual fallback mode")
+                                print("✓ Authentication successful!")
+                            finally:
+                                socket.setdefaulttimeout(original_timeout)
                         except Exception as e2:
                             logger.error(f"All authentication methods failed: {e2}")
                             return False
