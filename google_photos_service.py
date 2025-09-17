@@ -24,7 +24,9 @@ class GooglePhotosService:
     """Service for fetching and managing Google Photos for e-ink display"""
     
     # Google Photos API scopes
-    SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly']
+    # photoslibrary.readonly is not enough for some operations like listing
+    # Use the more general scope
+    SCOPES = ['https://www.googleapis.com/auth/photoslibrary']
     
     def __init__(self):
         self.service = None
