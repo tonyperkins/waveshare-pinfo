@@ -80,7 +80,8 @@ class GooglePhotosService:
                     print("3. The script will automatically complete the authentication.")
                     print("="*60 + "\n")
                     
-                    creds = flow.run_local_server(open_browser=False)
+                    # Use a fixed port (8080) to enable SSH port forwarding from a remote machine.
+                    creds = flow.run_local_server(port=8080, open_browser=False)
                     
                     if creds and creds.valid:
                         logger.info("Authentication successful with loopback flow.")
